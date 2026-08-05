@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { commitments, verificationEvents } from "@/db/schema";
 import { apiErrorResponse, authenticateApiKey, logAudit } from "@/lib/api-security";
+import { recordVerificationOutcome } from "@/lib/keenetix";
 export async function POST(request: Request) {
   try {
     const api = await authenticateApiKey(request, "verifications:write");
@@ -15,6 +16,7 @@ export async function POST(request: Request) {
     const [commitment] = await db.select().from(commitments).where(and(eq(commitments.reference, reference), eq(commitments.workspaceId, api.workspaceId))).limit(1);
     if (!commitment) return NextResponse.json({ error: "Commitment not found." }, { status: 404 });
     const [event] = await db.insert(verificationEvents).values({ commitmentId: commitment.id, type, provider, status, evidence: body.evidence as Record<string, unknown>, attestor: "oracle-adapter" }).returning();
+    await recordVerificationOutcome(commitment.id, status === "passed");
     await logAudit({ workspaceId: api.workspaceId, apiKeyId: api.apiKeyId, action: "verification.oracle_recorded", entityType: "verification_event", entityId: event.id, metadata: { reference, provider, status } });
     return NextResponse.json({ data: event }, { status: 201 });
   } catch (error) { return apiErrorResponse(error); }

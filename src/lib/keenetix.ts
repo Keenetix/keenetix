@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { agents, apiKeys, commitments, developerAccounts, organizations, reputationRecords, settlements, users, verificationEvents, verificationIntegrations, workspaceMemberships, workspaces } from "@/db/schema";
+import { agents, apiKeys, commitmentBids, commitments, developerAccounts, disputes, organizations, reputationRecords, settlements, users, verificationEvents, verificationIntegrations, workspaceMemberships, workspaces } from "@/db/schema";
 import { hashPassword } from "@/lib/auth";
 import { logAudit } from "@/lib/api-security";
 const PUBLIC_DEMO_EMAIL = "demo@keenetix.local";
@@ -16,15 +16,20 @@ export async function ensureWorkspace(workspaceId: number) {
   if (!account) [account] = await db.insert(developerAccounts).values({ organization: workspace.name, email: systemEmail }).returning();
   let workerList = await db.select().from(agents).where(eq(agents.workspaceId, workspace.id)).orderBy(agents.id);
   if (!workerList.length) {
+    const isPublic = workspace.slug === PUBLIC_DEMO_WORKSPACE;
     workerList = await db.insert(agents).values([
-      { workspaceId: workspace.id, name: "Iris", role: "Software engineering agent", description: "Autonomous full-stack software delivery, test remediation, and refactors.", capabilities: ["typescript", "github", "ci-cd", "security"], hourlyRate: "125.00", stakeAmount: "2400.00", isPublic: true, walletAddress: "0x8d31...bE4a", reputation: "98.70", completedCommitments: 128, totalEarnings: "48200.00" },
-      { workspaceId: workspace.id, name: "Vector", role: "Infrastructure agent", description: "Deployments, cloud reliability, and infrastructure-as-code execution.", capabilities: ["terraform", "kubernetes", "aws", "deployments"], hourlyRate: "148.00", stakeAmount: "3100.00", isPublic: true, walletAddress: "0x5c12...Aa11", reputation: "97.90", completedCommitments: 94, totalEarnings: "39750.00" },
-      { workspaceId: workspace.id, name: "Morrow", role: "Verification agent", description: "Independent CI, security, and delivery proof attestation.", capabilities: ["verification", "security", "attestation"], hourlyRate: "92.00", stakeAmount: "5200.00", isPublic: true, walletAddress: "0x7f99...D210", reputation: "99.10", completedCommitments: 211, totalEarnings: "61350.00" },
+      { workspaceId: workspace.id, name: "Iris", role: "Software engineering agent", description: "Autonomous full-stack software delivery, test remediation, and refactors.", capabilities: ["typescript", "github", "ci-cd", "security"], hourlyRate: "125.00", stakeAmount: "2400.00", isPublic, walletAddress: "0x8d31...bE4a", reputation: "98.70", completedCommitments: 128, totalEarnings: "48200.00" },
+      { workspaceId: workspace.id, name: "Vector", role: "Infrastructure agent", description: "Deployments, cloud reliability, and infrastructure-as-code execution.", capabilities: ["terraform", "kubernetes", "aws", "deployments"], hourlyRate: "148.00", stakeAmount: "3100.00", isPublic, walletAddress: "0x5c12...Aa11", reputation: "97.90", completedCommitments: 94, totalEarnings: "39750.00" },
+      { workspaceId: workspace.id, name: "Morrow", role: "Verification agent", description: "Independent CI, security, and delivery proof attestation.", capabilities: ["verification", "security", "attestation"], hourlyRate: "92.00", stakeAmount: "5200.00", isPublic, walletAddress: "0x7f99...D210", reputation: "99.10", completedCommitments: 211, totalEarnings: "61350.00" },
     ]).returning();
   }
   const [integration] = await db.select().from(verificationIntegrations).where(and(eq(verificationIntegrations.workspaceId, workspace.id), eq(verificationIntegrations.provider, "github"))).limit(1);
   if (!integration) await db.insert(verificationIntegrations).values({ workspaceId: workspace.id, provider: "github", status: "ready", configuration: { eventTypes: ["workflow_run", "check_run", "deployment_status"] } });
   return { workspace, account, workers: workerList };
+}
+export async function recordVerificationOutcome(commitmentId: number, passed: boolean) {
+  if (!passed) return;
+  await db.update(commitments).set({ status: "verified", updatedAt: new Date() }).where(and(eq(commitments.id, commitmentId), inArray(commitments.status, ["funded", "executing"])));
 }
 async function ensurePublicDemoWorkspace() {
   let [workspace] = await db.select().from(workspaces).where(eq(workspaces.slug, PUBLIC_DEMO_WORKSPACE)).limit(1);
@@ -112,16 +117,27 @@ export async function submitSettlementReceipt(input: { workspaceId: number; comm
   await logAudit({ workspaceId: input.workspaceId, action: "settlement.submitted", entityType: "settlement", entityId: settlement.id, metadata: { transactionHash: input.transactionHash, chainId: input.chainId } });
   return settlement;
 }
+const ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const USDC_DECIMALS = 6;
 export async function confirmSettlementReceipt(input: { workspaceId: number; transactionHash: string }) {
   const rpcUrl = process.env.EVM_RPC_URL;
   if (!rpcUrl) throw new Error("EVM_RPC_URL must be configured to verify an on-chain receipt.");
-  const response = await fetch(rpcUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionReceipt", params: [input.transactionHash] }), cache: "no-store" });
-  const payload = await response.json() as { result?: { status?: string; blockNumber?: string; transactionHash?: string } | null };
-  if (!payload.result) return { status: "pending" as const };
-  if (payload.result.status !== "0x1") throw new Error("The submitted transaction reverted on-chain.");
   const [settlement] = await db.select().from(settlements).innerJoin(commitments, eq(settlements.commitmentId, commitments.id)).where(and(eq(settlements.transactionHash, input.transactionHash), eq(commitments.workspaceId, input.workspaceId))).limit(1);
   if (!settlement) throw new Error("Settlement transaction not found.");
+  if (settlement.settlements.status === "settled") {
+    return { status: "settled" as const, blockNumber: (settlement.settlements.receipt as { blockNumber?: string } | null)?.blockNumber };
+  }
   const commitment = settlement.commitments;
+  const response = await fetch(rpcUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionReceipt", params: [input.transactionHash] }), cache: "no-store" });
+  const payload = await response.json() as { result?: { status?: string; blockNumber?: string; transactionHash?: string; logs?: { topics?: string[]; data?: string }[] } | null };
+  if (!payload.result) return { status: "pending" as const };
+  if (payload.result.status !== "0x1") throw new Error("The submitted transaction reverted on-chain.");
+  const expectedTo = settlement.settlements.escrowAddress?.toLowerCase();
+  const expectedAmount = BigInt(Math.round(Number(commitment.budget) * 10 ** USDC_DECIMALS));
+  const transferLog = payload.result.logs?.find((log) => log.topics?.[0] === ERC20_TRANSFER_TOPIC && log.topics.length === 3 && `0x${log.topics[2].slice(-40)}`.toLowerCase() === expectedTo);
+  if (!expectedTo || !transferLog || BigInt(transferLog.data ?? "0x0") !== expectedAmount) {
+    throw new Error("The transaction does not pay the required amount to the commitment escrow.");
+  }
   await db.update(settlements).set({ status: "settled", receipt: payload.result, settledAt: new Date() }).where(eq(settlements.id, settlement.settlements.id));
   await db.update(commitments).set({ status: "settled", updatedAt: new Date() }).where(eq(commitments.id, commitment.id));
   if (commitment.assignedAgentId) {
@@ -135,12 +151,65 @@ export async function confirmSettlementReceipt(input: { workspaceId: number; tra
   await logAudit({ workspaceId: input.workspaceId, action: "settlement.confirmed", entityType: "settlement", entityId: settlement.settlements.id, metadata: { transactionHash: input.transactionHash, blockNumber: payload.result.blockNumber } });
   return { status: "settled" as const, blockNumber: payload.result.blockNumber };
 }
-export async function getMarketplaceAgents() {
+export async function getMarketplaceAgents(filters: { capability?: string; minReputation?: number; minStake?: number; maxRate?: number } = {}) {
   const publicWorkspace = await ensurePublicDemoWorkspace();
   await ensureWorkspace(publicWorkspace.id);
-  const rows = await db.select({ id: agents.id, name: agents.name, role: agents.role, description: agents.description, capabilities: agents.capabilities, hourlyRate: agents.hourlyRate, stakeAmount: agents.stakeAmount, stakeAsset: agents.stakeAsset, reputation: agents.reputation, completedCommitments: agents.completedCommitments, totalEarnings: agents.totalEarnings, status: agents.status, workspaceName: workspaces.name }).from(agents).leftJoin(workspaces, eq(agents.workspaceId, workspaces.id)).where(eq(agents.isPublic, true)).orderBy(desc(agents.reputation));
-  ;
- return rows;
+  const conditions = [eq(agents.isPublic, true)];
+  if (filters.minReputation !== undefined) conditions.push(gte(agents.reputation, filters.minReputation.toFixed(2)));
+  if (filters.minStake !== undefined) conditions.push(gte(agents.stakeAmount, filters.minStake.toFixed(2)));
+  if (filters.maxRate !== undefined) conditions.push(lte(agents.hourlyRate, filters.maxRate.toFixed(2)));
+  const rows = await db.select({ id: agents.id, name: agents.name, role: agents.role, description: agents.description, capabilities: agents.capabilities, hourlyRate: agents.hourlyRate, stakeAmount: agents.stakeAmount, stakeAsset: agents.stakeAsset, reputation: agents.reputation, completedCommitments: agents.completedCommitments, totalEarnings: agents.totalEarnings, status: agents.status, workspaceName: workspaces.name }).from(agents).leftJoin(workspaces, eq(agents.workspaceId, workspaces.id)).where(and(...conditions)).orderBy(desc(agents.reputation));
+  if (!filters.capability) return rows;
+  const capability = filters.capability.toLowerCase();
+  return rows.filter((agent) => (Array.isArray(agent.capabilities) ? agent.capabilities : []).some((item) => String(item).toLowerCase() === capability));
+}
+export async function createBid(input: { commitmentId: number; agentId: number; workspaceId: number; proposedRate: number; message?: string }) {
+  const [commitment] = await db.select().from(commitments).where(eq(commitments.id, input.commitmentId)).limit(1);
+  if (!commitment) throw new Error("Commitment not found.");
+  if (commitment.assignedAgentId) throw new Error("This commitment already has an assigned worker.");
+  if (!["draft", "funded"].includes(commitment.status)) throw new Error("This commitment is not accepting bids.");
+  const [agent] = await db.select().from(agents).where(and(eq(agents.id, input.agentId), eq(agents.workspaceId, input.workspaceId))).limit(1);
+  if (!agent) throw new Error("Selected agent is not registered to your workspace.");
+  const [existing] = await db.select({ id: commitmentBids.id }).from(commitmentBids).where(and(eq(commitmentBids.commitmentId, input.commitmentId), eq(commitmentBids.agentId, input.agentId))).limit(1);
+  if (existing) throw new Error("This agent has already bid on this commitment.");
+  const [bid] = await db.insert(commitmentBids).values({ commitmentId: input.commitmentId, agentId: input.agentId, workspaceId: input.workspaceId, proposedRate: input.proposedRate.toFixed(2), message: input.message?.trim().slice(0, 500) ?? "" }).returning();
+  await logAudit({ workspaceId: input.workspaceId, action: "bid.created", entityType: "commitment_bid", entityId: bid.id, metadata: { commitmentId: input.commitmentId, agentId: input.agentId } });
+  return bid;
+}
+export async function listBidsForCommitment(commitmentId: number, workspaceId: number) {
+  const [commitment] = await db.select({ id: commitments.id }).from(commitments).where(and(eq(commitments.id, commitmentId), eq(commitments.workspaceId, workspaceId))).limit(1);
+  if (!commitment) throw new Error("Commitment not found in this workspace.");
+  return db.select({ id: commitmentBids.id, proposedRate: commitmentBids.proposedRate, message: commitmentBids.message, status: commitmentBids.status, createdAt: commitmentBids.createdAt, agentId: agents.id, agentName: agents.name, agentReputation: agents.reputation }).from(commitmentBids).innerJoin(agents, eq(commitmentBids.agentId, agents.id)).where(eq(commitmentBids.commitmentId, commitmentId)).orderBy(desc(commitmentBids.createdAt));
+}
+export async function approveBid(input: { commitmentId: number; bidId: number; workspaceId: number }) {
+  const [commitment] = await db.select().from(commitments).where(and(eq(commitments.id, input.commitmentId), eq(commitments.workspaceId, input.workspaceId))).limit(1);
+  if (!commitment) throw new Error("Commitment not found in this workspace.");
+  if (commitment.assignedAgentId) throw new Error("This commitment already has an assigned worker.");
+  const [bid] = await db.select().from(commitmentBids).where(and(eq(commitmentBids.id, input.bidId), eq(commitmentBids.commitmentId, input.commitmentId))).limit(1);
+  if (!bid || bid.status !== "pending") throw new Error("This bid is not available to approve.");
+  const [updatedCommitment] = await db.update(commitments).set({ assignedAgentId: bid.agentId, status: "funded", updatedAt: new Date() }).where(eq(commitments.id, commitment.id)).returning();
+  const [updatedBid] = await db.update(commitmentBids).set({ status: "approved" }).where(eq(commitmentBids.id, bid.id)).returning();
+  await db.update(commitmentBids).set({ status: "rejected" }).where(and(eq(commitmentBids.commitmentId, commitment.id), ne(commitmentBids.id, bid.id)));
+  await db.update(agents).set({ status: "executing" }).where(eq(agents.id, bid.agentId));
+  await db.insert(verificationEvents).values({ commitmentId: commitment.id, type: "bid_approved", provider: "Keenetix marketplace", status: "passed", evidence: { bidId: bid.id, proposedRate: bid.proposedRate }, attestor: "Keenetix protocol" });
+  await logAudit({ workspaceId: input.workspaceId, action: "bid.approved", entityType: "commitment_bid", entityId: bid.id, metadata: { commitmentId: commitment.id, agentId: bid.agentId } });
+  return { commitment: updatedCommitment, bid: updatedBid };
+}
+export async function createDispute(input: { commitmentId: number; userId: number; workspaceId: number; reason: string }) {
+  const [commitment] = await db.select().from(commitments).where(eq(commitments.id, input.commitmentId)).limit(1);
+  if (!commitment) throw new Error("Commitment not found.");
+  let authorized = commitment.workspaceId === input.workspaceId;
+  if (!authorized && commitment.assignedAgentId) {
+    const [agent] = await db.select({ workspaceId: agents.workspaceId }).from(agents).where(eq(agents.id, commitment.assignedAgentId)).limit(1);
+    authorized = agent?.workspaceId === input.workspaceId;
+  }
+  if (!authorized) throw new Error("You do not have access to dispute this commitment.");
+  const [existing] = await db.select({ id: disputes.id }).from(disputes).where(and(eq(disputes.commitmentId, input.commitmentId), eq(disputes.status, "open"))).limit(1);
+  if (existing) throw new Error("An open dispute already exists for this commitment.");
+  const [dispute] = await db.insert(disputes).values({ commitmentId: input.commitmentId, raisedByUserId: input.userId, reason: input.reason.trim().slice(0, 1000) }).returning();
+  await db.update(commitments).set({ status: "disputed", updatedAt: new Date() }).where(eq(commitments.id, commitment.id));
+  await logAudit({ workspaceId: input.workspaceId, userId: input.userId, action: "dispute.raised", entityType: "dispute", entityId: dispute.id, metadata: { commitmentId: commitment.id } });
+  return dispute;
 }
 export async function registerAgent(input: { workspaceId: number; name: string; role: string; description: string; capabilities: string[]; hourlyRate: number; stakeAmount: number; walletAddress: string; isPublic: boolean; verificationPublicKey?: string }) {
   await ensureWorkspace(input.workspaceId);

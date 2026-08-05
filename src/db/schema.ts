@@ -160,6 +160,26 @@ export const auditLogs = pgTable("audit_logs", {
   metadata: jsonb("metadata").notNull().default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+export const commitmentBids = pgTable("commitment_bids", {
+  id: serial("id").primaryKey(),
+  commitmentId: integer("commitment_id").notNull().references(() => commitments.id, { onDelete: "cascade" }),
+  agentId: integer("agent_id").notNull().references(() => agents.id, { onDelete: "cascade" }),
+  workspaceId: integer("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  proposedRate: numeric("proposed_rate", { precision: 12, scale: 2 }).notNull(),
+  message: text("message").notNull().default(""),
+  status: varchar("status", { length: 32 }).notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("commitment_bids_unique").on(table.commitmentId, table.agentId)]);
+export const disputes = pgTable("disputes", {
+  id: serial("id").primaryKey(),
+  commitmentId: integer("commitment_id").notNull().references(() => commitments.id, { onDelete: "cascade" }),
+  raisedByUserId: integer("raised_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  reason: text("reason").notNull(),
+  status: varchar("status", { length: 32 }).notNull().default("open"),
+  resolution: text("resolution"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});
 export const accessRequests = pgTable("access_requests", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 160 }).notNull(),

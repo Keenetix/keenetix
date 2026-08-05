@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { agents, commitments, verificationEvents } from "@/db/schema";
 import { apiErrorResponse, authenticateApiKey, logAudit } from "@/lib/api-security";
+import { recordVerificationOutcome } from "@/lib/keenetix";
 export async function POST(request: Request) {
   try {
     const api = await authenticateApiKey(request, "verifications:write");
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
     const valid = verify(null, message, agent.verificationPublicKey, Buffer.from(signature, "base64"));
     if (!valid) return NextResponse.json({ error: "Signature verification failed." }, { status: 400 });
     const [event] = await db.insert(verificationEvents).values({ commitmentId: commitment.id, type, provider: "signed-verifier", status: "passed", evidence: body.evidence as Record<string, unknown>, attestor: `agent:${agent.name}`, signature }).returning();
+    await recordVerificationOutcome(commitment.id, true);
     await logAudit({ workspaceId: api.workspaceId, apiKeyId: api.apiKeyId, action: "verification.attested", entityType: "verification_event", entityId: event.id, metadata: { commitmentReference: reference, agentId } });
     return NextResponse.json({ data: event }, { status: 201 });
   } catch (error) { return apiErrorResponse(error); }

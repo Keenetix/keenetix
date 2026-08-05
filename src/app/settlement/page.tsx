@@ -6,3 +6,4 @@ import { getCurrentIdentity } from "@/lib/auth";
 export default async function SettlementPage() {
   if (!await getCurrentIdentity()) redirect("/sign-in?next=/settlement");
   return <><SiteHeader /><main className="settlement-page"><WalletSettlementConsole /></main><SiteFooter /></>;
+}

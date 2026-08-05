@@ -31,6 +31,7 @@ export function DemoSimulator() {
     else setError("Unable to load the live demo.");
     setLoading(false);
   };
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-mount
   useEffect(() => { void load(); }, []);
 
   const transition = async (action: Action) => {

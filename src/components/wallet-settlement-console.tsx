@@ -14,7 +14,6 @@ export function WalletSettlementConsole() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [transactionHash, setTransactionHash] = useState("");
-  useEffect(() => { void load(); }, []);
   const load = async () => {
     const response = await fetch("/api/dashboard", { cache: "no-store" });
     const data = await response.json() as { commitments?: Commitment[] };
@@ -23,6 +22,8 @@ export function WalletSettlementConsole() {
       setCommitments(eligible); if (eligible[0]) setSelectedId(String(eligible[0].id));
     }
   };
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-mount
+  useEffect(() => { void load(); }, []);
   const connect = async () => {
     setError("");
     if (!window.ethereum) { setError("No EIP-1193 wallet was detected. Install a wallet such as MetaMask."); return; }

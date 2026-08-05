@@ -13,6 +13,7 @@ export function WorkspaceTeam({ role }: { role: string }) {
     if (response.ok) setMembers(data.members ?? []); else setError(data.error ?? "Unable to load team.");
     setLoading(false);
   };
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-mount
   useEffect(() => { void load(); }, []);
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError(""); setMessage("");

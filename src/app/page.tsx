@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AsciiField } from "@/components/ascii-field";
 import { KeenetixLogo } from "@/components/keenetix-logo";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -25,7 +26,7 @@ export default function HomePage() {
           </div>
           <div className="commitment-visual" aria-label="Economic commitment visual">
             <div className="visual-topline"><span>KEENETIX / ECONOMIC STATE</span><span><i /> VERIFIED</span></div>
-            <div className="visual-grid" />
+            <AsciiField rows={14} cols={20} className="visual-grid" />
             <div className="visual-k"><KeenetixLogo compact dark /></div>
             <div className="commitment-chip chip-intent"><b>Intent</b><span>Outcome locked</span></div>
             <div className="commitment-chip chip-budget"><b>4,800 USDC</b><span>Capital secured</span></div>

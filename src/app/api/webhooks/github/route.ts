@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { commitments, verificationEvents } from "@/db/schema";
 import { logAudit } from "@/lib/api-security";
+import { recordVerificationOutcome } from "@/lib/keenetix";
 type GitHubPayload = {
   workflow_run?: { name?: string; conclusion?: string; html_url?: string; id?: number };
   check_run?: { name?: string; conclusion?: string; html_url?: string; id?: number };
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
     const conclusion = source?.conclusion ?? payload.deployment_status?.state ?? "pending";
     const passed = ["success", "passed", "ready"].includes(conclusion);
     const [event] = await db.insert(verificationEvents).values({ commitmentId: commitment.id, type: eventName, provider: "github", status: passed ? "passed" : conclusion === "pending" ? "pending" : "failed", evidence: { repository: payload.repository?.full_name, conclusion, runUrl: source?.html_url ?? payload.deployment_status?.target_url, externalId: source?.id ?? payload.deployment_status?.id }, attestor: "github-webhook" }).returning();
+    await recordVerificationOutcome(commitment.id, passed);
     await logAudit({ workspaceId: commitment.workspaceId, action: "verification.github_recorded", entityType: "verification_event", entityId: event.id, metadata: { eventName, reference, conclusion } });
     return NextResponse.json({ accepted: true, recorded: true, verificationEventId: event.id });
   } catch {
