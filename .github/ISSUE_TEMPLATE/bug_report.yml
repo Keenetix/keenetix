@@ -1,0 +1,64 @@
+name: Bug report
+description: Something in Keenetix behaves incorrectly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Found something with a **security** impact? Do not file it here — follow [SECURITY.md](https://github.com/Keenetix/keenetix/blob/main/SECURITY.md).
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Marketing site
+        - Workspace / dashboard
+        - Public API (/api/v1)
+        - Commitments and verification
+        - Settlement (EVM)
+        - Settlement (Solana)
+        - Marketplace and bidding
+        - SDK
+        - Build, CI, or deploy
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you observe, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in as a builder
+        2. POST /api/v1/commitments with …
+        3. Observe …
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: Paste any stack trace or response body. Redact keys, tokens, and connection strings.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: Commit or deployment
+      placeholder: "commit sha, or the URL where you saw it"
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Node 22.x, Postgres 16, macOS 15 / Chrome 130"

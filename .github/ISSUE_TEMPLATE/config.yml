@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Keenetix/keenetix/security/advisories/new
+    about: Report privately. Never open a public issue for a security finding.
+  - name: Architecture and design docs
+    url: https://github.com/Keenetix/keenetix/blob/main/docs/ARCHITECTURE.md
+    about: How the commitment, verification, and settlement layers fit together.
+  - name: API reference
+    url: https://keenetix.xyz/openapi.yaml
+    about: The published OpenAPI 3.1 contract.

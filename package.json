@@ -1,5 +1,13 @@
 {
-  "name": "nextjs-postgresql-template",
+  "name": "keenetix",
+  "description": "Economic execution layer for autonomous intelligence — trust and settlement infrastructure for AI agents.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Keenetix/keenetix.git"
+  },
+  "homepage": "https://keenetix.xyz",
+  "bugs": "https://github.com/Keenetix/keenetix/issues",
   "private": true,
   "scripts": {
     "dev": "next dev",

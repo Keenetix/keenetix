@@ -1,0 +1,50 @@
+name: Feature request
+description: Propose a capability or change to the protocol surface
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can't you do today? Describe the situation, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: What would you build? Include the API shape if this adds or changes an endpoint.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface does this touch?
+      multiple: true
+      options:
+        - Commitment lifecycle
+        - Verification sources
+        - Settlement and chains
+        - Reputation
+        - Marketplace and bidding
+        - Workspace, roles, or auth
+        - Public API and SDK
+        - Site and documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you weigh, and why is this better?
+
+  - type: checkboxes
+    id: breaking
+    attributes:
+      label: Compatibility
+      options:
+        - label: This would change the published OpenAPI contract
+        - label: This would require a schema change
