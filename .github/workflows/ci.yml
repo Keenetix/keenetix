@@ -27,7 +27,7 @@ jobs:
       EVM_RPC_URL: http://127.0.0.1:8545
       GITHUB_WEBHOOK_SECRET: ci_webhook_secret
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -45,7 +45,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: npm install -g @railway/cli
       - run: railway up --service keenetix --detach
         env:
