@@ -2,7 +2,7 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { and, eq, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { db } from "@/db";
-import { organizationMemberships, organizations, sessions, users, workspaceMemberships, workspaces } from "@/db/schema";
+import { oauthAccounts, organizationMemberships, organizations, sessions, users, workspaceMemberships, workspaces } from "@/db/schema";
 const SESSION_COOKIE = "kntx_session";
 const WORKSPACE_COOKIE = "kntx_workspace";
 const SESSION_AGE_SECONDS = 60 * 60 * 24 * 7;
@@ -81,10 +81,37 @@ export async function signUp(input: { name: string; email: string; password: str
   await createSession(user.id, workspace.id);
   return { user, organization, workspace };
 }
+export async function signInWithOAuth(input: { provider: "google" | "github"; providerAccountId: string; email: string; name: string }) {
+  const email = input.email.trim().toLowerCase();
+  const name = input.name.trim().slice(0, 160) || email.split("@")[0];
+  if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error("Your account did not provide a usable email address.");
+  const [linked] = await db.select({ userId: oauthAccounts.userId }).from(oauthAccounts)
+    .where(and(eq(oauthAccounts.provider, input.provider), eq(oauthAccounts.providerAccountId, input.providerAccountId))).limit(1);
+  let userId = linked?.userId;
+  if (!userId) {
+    const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+    if (existingUser) {
+      userId = existingUser.id;
+    } else {
+      const suffix = randomBytes(3).toString("hex");
+      const [user] = await db.insert(users).values({ name, email, passwordHash: null }).returning();
+      const [organization] = await db.insert(organizations).values({ name, slug: `${slugify(name)}-${suffix}` }).returning();
+      await db.insert(organizationMemberships).values({ userId: user.id, organizationId: organization.id, role: "owner" });
+      const [workspace] = await db.insert(workspaces).values({ organizationId: organization.id, name: `${name} workspace`, slug: "main" }).returning();
+      await db.insert(workspaceMemberships).values({ userId: user.id, workspaceId: workspace.id, role: "owner" });
+      userId = user.id;
+    }
+    await db.insert(oauthAccounts).values({ userId, provider: input.provider, providerAccountId: input.providerAccountId });
+  }
+  const [membership] = await db.select({ workspaceId: workspaceMemberships.workspaceId }).from(workspaceMemberships).where(eq(workspaceMemberships.userId, userId)).limit(1);
+  if (!membership) throw new Error("This account does not have an active workspace.");
+  await createSession(userId, membership.workspaceId);
+  return { userId, workspaceId: membership.workspaceId };
+}
 export async function signIn(input: { email: string; password: string }) {
   const email = input.email.trim().toLowerCase();
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  if (!user || !verifyPassword(input.password, user.passwordHash)) throw new Error("Invalid email or password.");
+  if (!user || !user.passwordHash || !verifyPassword(input.password, user.passwordHash)) throw new Error("Invalid email or password.");
   const [membership] = await db.select({ workspaceId: workspaceMemberships.workspaceId }).from(workspaceMemberships).where(eq(workspaceMemberships.userId, user.id)).limit(1);
   if (!membership) throw new Error("This account does not have an active workspace.");
   await createSession(user.id, membership.workspaceId);
