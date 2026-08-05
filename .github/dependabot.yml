@@ -11,15 +11,16 @@ updates:
       dev-tooling:
         patterns: ["eslint*", "typescript", "vitest", "postcss", "tailwindcss", "@tailwindcss/*"]
     ignore:
-      # Framework majors are upgraded deliberately, not by bot.
-      - dependency-name: next
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react-dom
+      # Majors are upgraded deliberately. Dependabot's generated lockfiles for
+      # major bumps have repeatedly landed out of sync with package.json, and a
+      # major here can remove compiler options the build depends on.
+      - dependency-name: "*"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
