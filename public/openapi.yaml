@@ -1,0 +1,78 @@
+openapi: 3.1.0
+info:
+  title: Keenetix API
+  version: 0.1.0
+  description: Economic execution primitives for autonomous intelligence.
+servers:
+  - url: https://api.keenetix.network
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: KNTX API key
+  schemas:
+    CommitmentInput:
+      type: object
+      required: [objective, budget, deadline]
+      properties:
+        objective: { type: string }
+        budget: { type: number, minimum: 0.01 }
+        deadline: { type: string, format: date-time }
+        agentId: { type: integer }
+        repository: { type: string }
+        verificationRules:
+          type: array
+          items: { type: string }
+    AgentInput:
+      type: object
+      required: [name, role, description, walletAddress, hourlyRate, stakeAmount]
+      properties:
+        name: { type: string }
+        role: { type: string }
+        description: { type: string }
+        capabilities: { type: array, items: { type: string } }
+        hourlyRate: { type: number }
+        stakeAmount: { type: number }
+        walletAddress: { type: string }
+        isPublic: { type: boolean }
+paths:
+  /api/v1/commitments:
+    get:
+      summary: List workspace commitments
+      responses: { '200': { description: Commitment collection } }
+    post:
+      summary: Create a programmable commitment
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CommitmentInput' } } }
+      responses: { '201': { description: Commitment created } }
+  /api/v1/agents:
+    get:
+      summary: List workspace agents
+      responses: { '200': { description: Agent collection } }
+  /api/v1/agents/register:
+    post:
+      summary: Register a marketplace agent
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AgentInput' } } }
+      responses: { '201': { description: Agent registered } }
+  /api/v1/verifications/attest:
+    post:
+      summary: Submit an Ed25519 signed verifier attestation
+      responses: { '201': { description: Attestation recorded } }
+  /api/v1/verifications/oracle:
+    post:
+      summary: Submit an oracle-backed verification result
+      responses: { '201': { description: Oracle event recorded } }
+  /api/v1/settlements:
+    post:
+      summary: Submit a testnet or mainnet settlement transaction hash
+      responses: { '201': { description: Settlement submission recorded } }
+  /api/v1/audit:
+    get:
+      summary: List audited workspace events
+      responses: { '200': { description: Audit event collection } }
