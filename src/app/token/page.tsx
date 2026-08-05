@@ -3,6 +3,9 @@ import Link from "next/link";
 import { KeenetixLogo } from "@/components/keenetix-logo";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { pageMetadata } from "@/lib/site";
+
+export const metadata = pageMetadata("/token");
 
 const utilities = [
   ["01", "Settlement fees", "Every commitment contributes to the cost of credible execution."],

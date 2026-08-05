@@ -286,3 +286,132 @@ html.ascii-motion .protocol-flow article.ascii-reveal.ascii-in {
 }
 html.ascii-motion .protocol-flow-section.ascii-in article>i { animation: dot-fill .38s cubic-bezier(.2,.7,.3,1) both; animation-delay: calc(.15s + var(--step, 0) * 110ms); }
 html.ascii-motion .protocol-flow-section.ascii-in article>i:after { animation: track-draw .45s cubic-bezier(.4,0,.2,1) both; animation-delay: calc(.2s + var(--step, 0) * 110ms); }
+
+/* ---------------------------------------------------------------------------
+   Global polish: safe overflow, focus visibility, anchored scrolling.
+   `overflow-x: clip` rather than `hidden` so position:sticky keeps working.
+--------------------------------------------------------------------------- */
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 96px; }
+body { overflow-x: clip; }
+img, svg, video { max-width: 100%; }
+:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+:focus:not(:focus-visible) { outline: none; }
+::selection { background: var(--lime); color: var(--forest); }
+
+/* --- Header social links --------------------------------------------------- */
+.nav-social { align-items: center; display: flex; gap: 4px; }
+.nav-social a {
+  align-items: center; border: 1px solid transparent; color: #525951; display: inline-flex;
+  height: 32px; justify-content: center; transition: background .2s ease, border-color .2s ease, color .2s ease; width: 32px;
+}
+.nav-social a:hover { border-color: var(--line); color: var(--coral); }
+.nav-social a svg { display: block; }
+.nav-social a span { display: none; }
+.nav-actions { gap: 18px; }
+
+.mobile-social { border-top: 1px solid var(--line); gap: 8px; margin-top: 6px; padding-top: 18px; }
+.mobile-social a { border: 1px solid var(--line); color: var(--forest); gap: 9px; height: 44px; justify-content: center; min-width: 96px; padding: 0 18px; width: auto; }
+.mobile-social a span { display: inline; font-size: 12px; }
+
+/* --- Footer ---------------------------------------------------------------- */
+footer {
+  align-items: start; border-top: 1px solid var(--line); color: var(--forest); display: grid; gap: 40px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.85fr); padding: 58px max(28px, calc((100vw - 1240px) / 2)) 34px;
+}
+.footer-brand { display: flex; flex-direction: column; gap: 15px; }
+.footer-brand p { color: #6c746d; font-size: 12px; line-height: 1.5; margin: 0; max-width: 260px; }
+.footer-social { display: flex; gap: 8px; margin-top: 3px; }
+.footer-social a {
+  align-items: center; border: 1px solid var(--line); color: #576057; display: inline-flex; gap: 7px;
+  font-size: 11px; height: 34px; padding: 0 12px; transition: border-color .2s ease, color .2s ease;
+}
+.footer-social a:hover { border-color: var(--coral); color: var(--coral); }
+.footer-columns { display: grid; gap: 24px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.footer-columns > div { display: flex; flex-direction: column; gap: 11px; }
+.footer-columns p {
+  color: #8d938d; font-size: 9px; font-weight: 700; letter-spacing: .12em; margin: 0 0 3px; text-transform: uppercase;
+}
+.footer-columns a { color: #576057; font-size: 12px; transition: color .2s ease; }
+.footer-columns a:hover { color: var(--coral); }
+.copyright { color: #9aa09b; font-size: 8px; grid-column: 1 / -1; letter-spacing: .1em; margin-top: 8px; }
+
+/* --- Legal pages (terms, security) ----------------------------------------- */
+.legal-hero { margin: 0 auto; max-width: 1240px; padding: 104px 28px 62px; }
+.legal-hero h1 { color: var(--forest); font-size: clamp(46px, 6vw, 82px); margin: 20px 0 0; }
+.legal-hero h1 em { color: var(--coral); font-style: normal; }
+.legal-lede { color: #5c655e; font-size: 16px; line-height: 1.55; margin: 27px 0 0; max-width: 620px; }
+.legal-updated { align-items: center; display: flex; gap: 10px; margin: 34px 0 0; }
+.legal-updated span {
+  color: #8d938d; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+}
+.legal-updated b { border-left: 1px solid var(--line); color: var(--forest); font-size: 11px; font-weight: 600; padding-left: 10px; }
+
+.legal-layout { display: grid; gap: 78px; grid-template-columns: 232px minmax(0, 1fr); margin: 0 auto; max-width: 1240px; padding: 26px 28px 124px; }
+.legal-nav { align-self: start; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 11px; padding-left: 16px; position: sticky; top: 26px; }
+.legal-nav p { color: #8d938d; font-size: 9px; font-weight: 700; letter-spacing: .1em; margin: 0 0 3px; text-transform: uppercase; }
+.legal-nav a { align-items: baseline; color: #5e665f; display: flex; font-size: 12px; gap: 9px; line-height: 1.35; transition: color .2s ease; }
+.legal-nav a:hover { color: var(--coral); }
+.legal-nav i { color: var(--coral); font-size: 9px; font-style: normal; font-weight: 700; }
+
+.legal-body { max-width: 780px; }
+.legal-section { border-top: 1px solid var(--line); padding: 24px 0 46px; scroll-margin-top: 90px; }
+.legal-section > span { color: var(--coral); font-size: 10px; font-weight: 700; letter-spacing: .1em; }
+.legal-section h2 { color: var(--forest); font-size: clamp(24px, 2.6vw, 32px); font-weight: 500; letter-spacing: -.045em; margin: 14px 0 0; }
+.legal-section p { color: #5b645d; font-size: 14px; line-height: 1.68; margin: 17px 0 0; }
+.legal-section p b { color: var(--forest); font-weight: 600; }
+.legal-section p em { color: var(--forest); font-style: italic; }
+.legal-section a { color: var(--coral); text-decoration: underline; text-underline-offset: 3px; }
+.legal-section code { background: #eceeea; color: var(--forest); font-family: "Courier New", monospace; font-size: .88em; padding: 1px 5px; }
+.legal-list { display: grid; gap: 10px; list-style: none; margin: 19px 0 0; padding: 0; }
+.legal-list li { border-left: 2px solid var(--line); color: #5b645d; font-size: 13px; line-height: 1.6; padding-left: 14px; }
+.legal-list li b { color: var(--forest); font-weight: 600; }
+.legal-footnote { border-top: 1px solid var(--line); color: #8d938d; font-size: 11px; letter-spacing: .04em; margin: 0; padding-top: 22px; }
+.legal-footnote a { color: #6c746d; }
+.legal-footnote a:hover { color: var(--coral); }
+
+/* --- Responsive ------------------------------------------------------------ */
+@media (max-width: 1000px) {
+  .nav-links { gap: 22px; margin-left: 40px; }
+  .legal-layout { gap: 44px; grid-template-columns: 190px minmax(0, 1fr); }
+}
+
+@media (max-width: 900px) {
+  footer { gap: 34px; grid-template-columns: 1fr; padding: 48px max(24px, calc((100vw - 1240px) / 2)) 30px; }
+  .footer-brand p { max-width: 420px; }
+  .legal-hero { padding: 84px 24px 48px; }
+  .legal-layout { display: block; padding: 14px 24px 96px; }
+  .legal-nav { display: none; }
+  .legal-body { max-width: none; }
+}
+
+@media (max-width: 640px) {
+  footer { gap: 30px; padding: 42px 20px 26px; }
+  .footer-columns { gap: 26px 18px; grid-template-columns: 1fr 1fr; }
+  .footer-columns > div:last-child { grid-column: 1 / -1; }
+  .footer-social a { height: 40px; }
+  .copyright { margin-top: 4px; }
+
+  .legal-hero { padding: 74px 20px 42px; }
+  .legal-hero h1 { font-size: clamp(38px, 11.5vw, 54px); }
+  .legal-lede { font-size: 15px; margin-top: 24px; }
+  .legal-updated { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .legal-updated b { border-left: 0; padding-left: 0; }
+  .legal-layout { padding: 10px 20px 78px; }
+  .legal-section { padding: 21px 0 38px; }
+  .legal-section h2 { font-size: 23px; }
+  .legal-section p { font-size: 13.5px; line-height: 1.62; }
+  .legal-list li { font-size: 12.5px; }
+
+  /* Comfortable tap targets and no accidental horizontal scroll. */
+  .mobile-menu { max-height: calc(100dvh - 73px); overflow-y: auto; }
+  .mobile-menu a { padding: 4px 0; }
+  .nav-social a { height: 40px; width: 40px; }
+  .code-window pre, .docs-code pre, .sdk-panel pre { -webkit-overflow-scrolling: touch; }
+  .commitment-table, .key-table, .state-table { overflow-x: auto; }
+}
+
+@media (max-width: 400px) {
+  .footer-columns { grid-template-columns: 1fr; }
+  .footer-columns > div:last-child { grid-column: auto; }
+  .legal-hero h1 { font-size: 36px; }
+}

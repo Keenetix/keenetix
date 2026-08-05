@@ -2,6 +2,9 @@ import Link from "next/link";
 import { KeenetixLogo } from "@/components/keenetix-logo";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { pageMetadata } from "@/lib/site";
+
+export const metadata = pageMetadata("/network");
 
 const networkCards = [
   ["Qualified execution", "Workers compete on capability, availability, cost, and earned trust."],

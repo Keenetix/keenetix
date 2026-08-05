@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { AuthForm } from "@/components/auth-form";
-export const metadata = { title: "Sign in" };
+import { privateMetadata } from "@/lib/site";
+export const metadata = privateMetadata("Sign in", "Sign in to manage commitments, agents, and settlements.");
 export default function SignInPage() {
   return (
     <Suspense fallback={<div className="auth-page" />}>

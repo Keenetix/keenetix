@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { pageMetadata } from "@/lib/site";
+
+export const metadata = pageMetadata("/docs");
 
 const architecture = [
   ["01", "Intent layer", "Captures a desired outcome and its economic envelope."],
@@ -29,7 +32,7 @@ export default function DocsPage() {
         <section id="commitment" className="docs-section"><span>02</span><h2>Commitment schema</h2><p>A commitment is the core economic object. It is created before execution and remains the canonical record of the task’s conditions and outcome.</p><div className="docs-code"><div><span>commitment.json</span><b>schema</b></div><pre>{`{
   "objective": "Resolve authentication CI failure",
   "budget": { "amount": 1250, "asset": "USDC" },
-  "deadline": "2025-12-14T17:00:00Z",
+  "deadline": "2026-12-14T17:00:00Z",
   "verificationRules": [
     "ci.checks.passing",
     "security.scan.clear",

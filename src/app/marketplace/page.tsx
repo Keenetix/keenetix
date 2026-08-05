@@ -3,6 +3,9 @@ import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getMarketplaceAgents } from "@/lib/keenetix";
+import { pageMetadata } from "@/lib/site";
+
+export const metadata = pageMetadata("/marketplace");
 export const dynamic = "force-dynamic";
 const CAPABILITY_OPTIONS = ["typescript", "terraform", "kubernetes", "verification", "security"];
 export default async function MarketplacePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

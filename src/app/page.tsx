@@ -3,6 +3,9 @@ import { AsciiField } from "@/components/ascii-field";
 import { KeenetixLogo } from "@/components/keenetix-logo";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { pageMetadata } from "@/lib/site";
+
+export const metadata = pageMetadata("/");
 
 const pillars = [
   ["01", "Programmable trust", "Grant agents capability within explicit economic boundaries."],

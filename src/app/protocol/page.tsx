@@ -2,6 +2,9 @@ import { AsciiField } from "@/components/ascii-field";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { pageMetadata } from "@/lib/site";
+
+export const metadata = pageMetadata("/protocol");
 
 const lifecycle = [
   ["01", "Intent", "A user defines the outcome to be achieved."],
@@ -34,7 +37,7 @@ export default function ProtocolPage() {
         <section className="definition-grid">
           <div><p className="section-label">The commitment primitive</p><h2>Clear conditions.<br /><em>Automatic consequences.</em></h2></div>
           <p className="definition-lede">A commitment is a durable economic instruction for autonomous work. It describes exactly what may happen, what must be proven, and how capital moves when it does.</p>
-          <div className="commitment-spec-card"><div className="spec-header"><span>COMMITMENT #AX-842</span><b>ACTIVE</b></div><h3>Ship auth refactor</h3><div className="spec-grid"><span><small>Objective</small>Modernize auth while preserving API contracts</span><span><small>Budget</small>4,800 USDC</span><span><small>Deadline</small>2025-12-14, 17:00 UTC</span><span><small>Settlement</small>Release on verified proof</span></div></div>
+          <div className="commitment-spec-card"><div className="spec-header"><span>COMMITMENT #AX-842</span><b>ACTIVE</b></div><h3>Ship auth refactor</h3><div className="spec-grid"><span><small>Objective</small>Modernize auth while preserving API contracts</span><span><small>Budget</small>4,800 USDC</span><span><small>Deadline</small>2026-12-14, 17:00 UTC</span><span><small>Settlement</small>Release on verified proof</span></div></div>
         </section>
 
         <section className="verification-section">

@@ -1,6 +1,9 @@
 import { KeenetixLogo } from "@/components/keenetix-logo";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { pageMetadata } from "@/lib/site";
+
+export const metadata = pageMetadata("/brand");
 
 const colors = [
   ["Forest", "#285337", "The primary field for durable trust."],
@@ -24,6 +27,6 @@ export default function BrandPage() {
     <section className="mark-anatomy"><div className="anatomy-visual"><div className="anatomy-grid" /><KeenetixLogo compact /><span className="anatomy-label label-grid">01 / Potential field</span><span className="anatomy-label label-signal">02 / Execution signal</span><span className="anatomy-label label-nodes">03 / Economic nodes</span></div><div className="anatomy-copy"><p className="section-label light-label">02 / Mark anatomy</p><h2>Potential becomes<br /><em>a route forward.</em></h2><p>The quiet dot field represents available economic possibility. The coral vector activates a path through that field—intent becoming coordinated action.</p></div></section>
     <section className="brand-colors"><div className="brand-section-head"><p className="section-label">03 / Palette</p><h2>Color carries state.</h2></div><div className="color-grid">{colors.map(([name, hex, meaning]) => <article key={name} style={{ background: hex }} className={name === "Forest" || name === "Carbon" ? "dark-swatch" : ""}><span>{name}</span><b>{hex}</b><p>{meaning}</p></article>)}</div></section>
     <section className="brand-rules"><div><p className="section-label">04 / Usage rules</p><h2>Clear, not<br /><em>decorative.</em></h2></div><div className="rule-list">{rules.map(([title, body], index) => <article key={title}><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></article>)}</div></section>
-    <section className="favicon-callout"><div className="favicon-card"><img src="/favicon.svg" alt="Keenetix favicon" /></div><div><p className="section-label light-label">Digital signature</p><h2>One signal,<br /><em>any scale.</em></h2><p>The Keenetix favicon is the compact logo mark, framed in forest. Use it at small sizes instead of the complete lockup.</p></div></section>
+    <section className="favicon-callout"><div className="favicon-card"><img src="/icon.svg" alt="Keenetix favicon" /></div><div><p className="section-label light-label">Digital signature</p><h2>One signal,<br /><em>any scale.</em></h2><p>The Keenetix favicon is the compact logo mark, framed in forest. Use it at small sizes instead of the complete lockup.</p></div></section>
   </main><SiteFooter /></>;
 }
