@@ -130,6 +130,7 @@ export const settlements = pgTable("settlements", {
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
   asset: varchar("asset", { length: 16 }).notNull(),
   status: varchar("status", { length: 32 }).notNull().default("pending"),
+  chain: varchar("chain", { length: 16 }).notNull().default("evm"),
   chainId: integer("chain_id"),
   escrowAddress: varchar("escrow_address", { length: 100 }),
   transactionHash: varchar("transaction_hash", { length: 128 }),

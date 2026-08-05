@@ -106,39 +106,71 @@ export async function advanceDemo(action: DemoAction) {
   }
   return getDemoData();
 }
-export async function submitSettlementReceipt(input: { workspaceId: number; commitmentId: number; transactionHash: string; chainId: number; escrowAddress: string }) {
+const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]+$/;
+export function isValidReceipt(chain: "evm" | "solana", transactionHash: string, escrowAddress: string, chainId: number) {
+  if (chain === "solana") return BASE58_RE.test(transactionHash) && transactionHash.length >= 64 && transactionHash.length <= 90 && BASE58_RE.test(escrowAddress) && escrowAddress.length >= 32 && escrowAddress.length <= 44;
+  return Number.isInteger(chainId) && !!chainId && /^0x[a-fA-F0-9]{64}$/.test(transactionHash) && /^0x[a-fA-F0-9]{40}$/.test(escrowAddress);
+}
+export async function submitSettlementReceipt(input: { workspaceId: number; commitmentId: number; transactionHash: string; chain?: "evm" | "solana"; chainId?: number; escrowAddress: string }) {
+  const chain = input.chain ?? "evm";
   const [commitment] = await db.select().from(commitments).where(and(eq(commitments.id, input.commitmentId), eq(commitments.workspaceId, input.workspaceId))).limit(1);
   if (!commitment) throw new Error("Commitment not found in this workspace.");
   if (!["verified", "awaiting_settlement"].includes(commitment.status)) throw new Error("Settlement is only available after verification.");
   const [existing] = await db.select().from(settlements).where(eq(settlements.commitmentId, commitment.id)).orderBy(desc(settlements.createdAt)).limit(1);
-  const values = { amount: commitment.budget, asset: commitment.asset, status: "submitted", transactionHash: input.transactionHash, chainId: input.chainId, escrowAddress: input.escrowAddress };
+  const values = { amount: commitment.budget, asset: commitment.asset, status: "submitted", transactionHash: input.transactionHash, chain, chainId: input.chainId ?? null, escrowAddress: input.escrowAddress };
   const settlement = existing ? (await db.update(settlements).set(values).where(eq(settlements.id, existing.id)).returning())[0] : (await db.insert(settlements).values({ commitmentId: commitment.id, ...values }).returning())[0];
   await db.update(commitments).set({ status: "settlement_submitted", updatedAt: new Date() }).where(eq(commitments.id, commitment.id));
-  await logAudit({ workspaceId: input.workspaceId, action: "settlement.submitted", entityType: "settlement", entityId: settlement.id, metadata: { transactionHash: input.transactionHash, chainId: input.chainId } });
+  await logAudit({ workspaceId: input.workspaceId, action: "settlement.submitted", entityType: "settlement", entityId: settlement.id, metadata: { transactionHash: input.transactionHash, chain, chainId: input.chainId } });
   return settlement;
 }
 const ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const USDC_DECIMALS = 6;
+type SettlementRow = typeof settlements.$inferSelect;
+type CommitmentRow = typeof commitments.$inferSelect;
 export async function confirmSettlementReceipt(input: { workspaceId: number; transactionHash: string }) {
+  const [row] = await db.select().from(settlements).innerJoin(commitments, eq(settlements.commitmentId, commitments.id)).where(and(eq(settlements.transactionHash, input.transactionHash), eq(commitments.workspaceId, input.workspaceId))).limit(1);
+  if (!row) throw new Error("Settlement transaction not found.");
+  if (row.settlements.status === "settled") {
+    return { status: "settled" as const, blockNumber: (row.settlements.receipt as { blockNumber?: string } | null)?.blockNumber };
+  }
+  if (row.settlements.chain === "solana") return confirmSolanaSettlement(input.workspaceId, row.settlements, row.commitments);
+  return confirmEvmSettlement(input.workspaceId, row.settlements, row.commitments);
+}
+async function confirmEvmSettlement(workspaceId: number, settlement: SettlementRow, commitment: CommitmentRow) {
   const rpcUrl = process.env.EVM_RPC_URL;
   if (!rpcUrl) throw new Error("EVM_RPC_URL must be configured to verify an on-chain receipt.");
-  const [settlement] = await db.select().from(settlements).innerJoin(commitments, eq(settlements.commitmentId, commitments.id)).where(and(eq(settlements.transactionHash, input.transactionHash), eq(commitments.workspaceId, input.workspaceId))).limit(1);
-  if (!settlement) throw new Error("Settlement transaction not found.");
-  if (settlement.settlements.status === "settled") {
-    return { status: "settled" as const, blockNumber: (settlement.settlements.receipt as { blockNumber?: string } | null)?.blockNumber };
-  }
-  const commitment = settlement.commitments;
-  const response = await fetch(rpcUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionReceipt", params: [input.transactionHash] }), cache: "no-store" });
+  const response = await fetch(rpcUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionReceipt", params: [settlement.transactionHash] }), cache: "no-store" });
   const payload = await response.json() as { result?: { status?: string; blockNumber?: string; transactionHash?: string; logs?: { topics?: string[]; data?: string }[] } | null };
   if (!payload.result) return { status: "pending" as const };
   if (payload.result.status !== "0x1") throw new Error("The submitted transaction reverted on-chain.");
-  const expectedTo = settlement.settlements.escrowAddress?.toLowerCase();
+  const expectedTo = settlement.escrowAddress?.toLowerCase();
   const expectedAmount = BigInt(Math.round(Number(commitment.budget) * 10 ** USDC_DECIMALS));
   const transferLog = payload.result.logs?.find((log) => log.topics?.[0] === ERC20_TRANSFER_TOPIC && log.topics.length === 3 && `0x${log.topics[2].slice(-40)}`.toLowerCase() === expectedTo);
   if (!expectedTo || !transferLog || BigInt(transferLog.data ?? "0x0") !== expectedAmount) {
     throw new Error("The transaction does not pay the required amount to the commitment escrow.");
   }
-  await db.update(settlements).set({ status: "settled", receipt: payload.result, settledAt: new Date() }).where(eq(settlements.id, settlement.settlements.id));
+  return finalizeSettlement(workspaceId, settlement, commitment, payload.result, payload.result.blockNumber);
+}
+async function confirmSolanaSettlement(workspaceId: number, settlement: SettlementRow, commitment: CommitmentRow) {
+  const rpcUrl = process.env.SOLANA_RPC_URL;
+  if (!rpcUrl) throw new Error("SOLANA_RPC_URL must be configured to verify a Solana receipt.");
+  const { Connection } = await import("@solana/web3.js");
+  const connection = new Connection(rpcUrl, "confirmed");
+  const parsed = await connection.getParsedTransaction(settlement.transactionHash!, { maxSupportedTransactionVersion: 0 });
+  if (!parsed) return { status: "pending" as const };
+  if (parsed.meta?.err) throw new Error("The submitted transaction failed on-chain.");
+  const expectedTo = settlement.escrowAddress;
+  const expectedAmount = BigInt(Math.round(Number(commitment.budget) * 10 ** USDC_DECIMALS));
+  const instructions = parsed.transaction.message.instructions as unknown as { program?: string; parsed?: { type?: string; info?: { destination?: string; amount?: string; tokenAmount?: { amount?: string } } } }[];
+  const transferIx = instructions.find((ix) => ix.program === "spl-token" && (ix.parsed?.type === "transfer" || ix.parsed?.type === "transferChecked") && ix.parsed.info?.destination === expectedTo);
+  const paidAmount = transferIx?.parsed?.info?.tokenAmount?.amount ?? transferIx?.parsed?.info?.amount;
+  if (!expectedTo || !transferIx || !paidAmount || BigInt(paidAmount) !== expectedAmount) {
+    throw new Error("The transaction does not pay the required amount to the commitment escrow.");
+  }
+  return finalizeSettlement(workspaceId, settlement, commitment, { slot: parsed.slot }, String(parsed.slot));
+}
+async function finalizeSettlement(workspaceId: number, settlement: SettlementRow, commitment: CommitmentRow, receipt: unknown, blockReference?: string) {
+  await db.update(settlements).set({ status: "settled", receipt, settledAt: new Date() }).where(eq(settlements.id, settlement.id));
   await db.update(commitments).set({ status: "settled", updatedAt: new Date() }).where(eq(commitments.id, commitment.id));
   if (commitment.assignedAgentId) {
     const [worker] = await db.select().from(agents).where(eq(agents.id, commitment.assignedAgentId)).limit(1);
@@ -148,8 +180,8 @@ export async function confirmSettlementReceipt(input: { workspaceId: number; tra
       await db.insert(reputationRecords).values({ agentId: worker.id, commitmentId: commitment.id, reliability: "99.00", quality: "98.00", efficiency: "97.00", delta: ".20", note: "Verified on-chain settlement confirmed" });
     }
   }
-  await logAudit({ workspaceId: input.workspaceId, action: "settlement.confirmed", entityType: "settlement", entityId: settlement.settlements.id, metadata: { transactionHash: input.transactionHash, blockNumber: payload.result.blockNumber } });
-  return { status: "settled" as const, blockNumber: payload.result.blockNumber };
+  await logAudit({ workspaceId, action: "settlement.confirmed", entityType: "settlement", entityId: settlement.id, metadata: { transactionHash: settlement.transactionHash, blockReference } });
+  return { status: "settled" as const, blockNumber: blockReference };
 }
 export async function getMarketplaceAgents(filters: { capability?: string; minReputation?: number; minStake?: number; maxRate?: number } = {}) {
   const publicWorkspace = await ensurePublicDemoWorkspace();
