@@ -7,6 +7,10 @@ export function oauthCookieNames() {
   return { state: STATE_COOKIE, next: NEXT_COOKIE };
 }
 
+export function appOrigin(request: Request) {
+  return process.env.APP_URL ?? new URL(request.url).origin;
+}
+
 export function buildGoogleAuthUrl(redirectUri: string, state: string) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) throw new Error("GOOGLE_CLIENT_ID is not configured.");

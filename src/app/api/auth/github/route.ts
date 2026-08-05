@@ -1,15 +1,16 @@
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
-import { buildGithubAuthUrl, oauthCookieNames } from "@/lib/oauth";
+import { appOrigin, buildGithubAuthUrl, oauthCookieNames } from "@/lib/oauth";
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const origin = appOrigin(request);
   const next = url.searchParams.get("next");
   const state = randomBytes(16).toString("hex");
   let authUrl: string;
   try {
-    authUrl = buildGithubAuthUrl(`${url.origin}/api/auth/github/callback`, state);
+    authUrl = buildGithubAuthUrl(`${origin}/api/auth/github/callback`, state);
   } catch (error) {
-    return NextResponse.redirect(new URL(`/sign-in?error=${encodeURIComponent(error instanceof Error ? error.message : "GitHub sign-in is not configured.")}`, url.origin));
+    return NextResponse.redirect(new URL(`/sign-in?error=${encodeURIComponent(error instanceof Error ? error.message : "GitHub sign-in is not configured.")}`, origin));
   }
   const response = NextResponse.redirect(authUrl);
   const { state: stateCookie, next: nextCookie } = oauthCookieNames();

@@ -1,15 +1,16 @@
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
-import { buildGoogleAuthUrl, oauthCookieNames } from "@/lib/oauth";
+import { appOrigin, buildGoogleAuthUrl, oauthCookieNames } from "@/lib/oauth";
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const origin = appOrigin(request);
   const next = url.searchParams.get("next");
   const state = randomBytes(16).toString("hex");
   let authUrl: string;
   try {
-    authUrl = buildGoogleAuthUrl(`${url.origin}/api/auth/google/callback`, state);
+    authUrl = buildGoogleAuthUrl(`${origin}/api/auth/google/callback`, state);
   } catch (error) {
-    return NextResponse.redirect(new URL(`/sign-in?error=${encodeURIComponent(error instanceof Error ? error.message : "Google sign-in is not configured.")}`, url.origin));
+    return NextResponse.redirect(new URL(`/sign-in?error=${encodeURIComponent(error instanceof Error ? error.message : "Google sign-in is not configured.")}`, origin));
   }
   const response = NextResponse.redirect(authUrl);
   const { state: stateCookie, next: nextCookie } = oauthCookieNames();
