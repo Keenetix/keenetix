@@ -133,4 +133,4 @@ The contract is published as OpenAPI 3.1 at [`public/openapi.yaml`](public/opena
 
 ## License
 
-[MIT](LICENSE) © 2026 Keenetix Labs
+[MIT](LICENSE) © 2026 Keenetix Protocol
