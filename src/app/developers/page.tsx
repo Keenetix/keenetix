@@ -1,3 +1,4 @@
+import { AsciiField } from "@/components/ascii-field";
 import { DeveloperAccessForm } from "@/components/developer-access-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -25,6 +26,7 @@ export default function DevelopersPage() {
         <section className="primitive-grid">{primitives.map(([title, text], index) => <article key={title}><span>0{index + 1}</span><div className="primitive-mark">{["+", "→", "✓", "↗"][index]}</div><h3>{title}</h3><p>{text}</p></article>)}</section>
 
         <section className="code-section">
+          <AsciiField rows={10} cols={44} variant="rain" className="field-cover field-code" />
           <div className="code-copy"><p className="section-label light-label">Developer experience</p><h2>Economic logic,<br /><em>expressed clearly.</em></h2><p>Keenetix presents a compact set of primitives that can fit into agent runtimes, automation tools, and existing product workflows.</p><div className="code-tags"><span>Typescript SDK</span><span>REST API</span><span>Webhooks</span></div></div>
           <div className="code-window"><div className="code-head"><span>create-commitment.ts</span><span>● Connected</span></div><pre><code><span className="code-muted">const</span> commitment = <span className="code-call">await</span> keenetix.<span className="code-call">create</span>({"\n"}  objective: <span className="code-string">&quot;Ship auth refactor&quot;</span>,{"\n"}  budget: <span className="code-number">4800</span>,{"\n"}  asset: <span className="code-string">&quot;USDC&quot;</span>,{"\n"}  verification: [<span className="code-string">&quot;ci.passing&quot;</span>, <span className="code-string">&quot;review.approved&quot;</span>],{"\n"}  deadline: <span className="code-string">&quot;2025-12-14T17:00:00Z&quot;</span>{"\n});"}</code></pre><div className="code-result"><i>✓</i><span><b>Commitment created</b><small>#AX-842 · Awaiting worker assignment</small></span></div></div>
         </section>

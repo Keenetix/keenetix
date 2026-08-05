@@ -1,3 +1,4 @@
+import { AsciiField } from "@/components/ascii-field";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -37,6 +38,7 @@ export default function ProtocolPage() {
         </section>
 
         <section className="verification-section">
+          <AsciiField rows={10} cols={44} variant="rain" className="field-cover field-verify" />
           <div className="verification-copy"><p className="section-label light-label">Verification layer</p><h2>Make proof the<br /><em>condition for payment.</em></h2><p>Keenetix is verification-agnostic. Commitments can combine deterministic signals and human expertise, using the right proof for the job.</p></div>
           <div className="verification-list">{verification.map((item, index) => <div key={item}><span>0{index + 1}</span><b>{item}</b><i>↗</i></div>)}</div>
         </section>

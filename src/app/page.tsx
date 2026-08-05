@@ -26,8 +26,8 @@ export default function HomePage() {
           </div>
           <div className="commitment-visual" aria-label="Economic commitment visual">
             <div className="visual-topline"><span>KEENETIX / ECONOMIC STATE</span><span><i /> VERIFIED</span></div>
-            <AsciiField rows={14} cols={20} className="visual-grid" />
-            <div className="visual-k"><KeenetixLogo compact dark /></div>
+            <div className="visual-grid" />
+            <div className="visual-k"><KeenetixLogo compact /></div>
             <div className="commitment-chip chip-intent"><b>Intent</b><span>Outcome locked</span></div>
             <div className="commitment-chip chip-budget"><b>4,800 USDC</b><span>Capital secured</span></div>
             <div className="commitment-chip chip-proof"><b>Proof verified</b><span>CI attestation</span></div>
@@ -46,6 +46,7 @@ export default function HomePage() {
         </section>
 
         <section className="lifecycle-preview">
+          <AsciiField rows={9} cols={40} variant="scan" className="field-cover field-lifecycle" />
           <div className="lifecycle-header"><div><p className="section-label light-label">The economic lifecycle</p><h2>Outcome in.<br /><em>Trust out.</em></h2></div><p>Every commitment moves through an auditable lifecycle—from an objective to learned, reusable trust.</p></div>
           <div className="lifecycle-steps">{lifecycle.map((step, index) => <div key={step}><span>0{index + 1}</span><b>{step}</b></div>)}</div>
           <Link className="text-link text-link-light" href="/protocol">See the protocol lifecycle <span>→</span></Link>

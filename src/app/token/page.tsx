@@ -1,3 +1,4 @@
+import { AsciiField } from "@/components/ascii-field";
 import Link from "next/link";
 import { KeenetixLogo } from "@/components/keenetix-logo";
 import { SiteFooter } from "@/components/site-footer";
@@ -24,7 +25,7 @@ export default function TokenPage() {
         </section>
 
         <section className="token-hero-block">
-          <div className="token-mark-display"><div className="token-rings"><i /><i /><i /></div><KeenetixLogo compact dark /><b>$KNTX</b><span>KEENETIX NETWORK TOKEN</span></div>
+          <div className="token-mark-display"><AsciiField rows={18} cols={34} variant="pulse" className="field-cover field-token" /><div className="token-rings"><i /><i /><i /></div><KeenetixLogo compact dark /><b>$KNTX</b><span>KEENETIX NETWORK TOKEN</span></div>
           <div className="token-manifest"><p className="section-label">Protocol utility</p><h2>Not just governance.<br /><em>Economic gravity.</em></h2><p>The Keenetix token is designed to make network participants economically accountable for the trust they create, validate, and rely on.</p><div className="manifest-stat"><b>01</b><span>Token utility is tied to the security of autonomous execution.</span></div></div>
         </section>
 
@@ -33,7 +34,7 @@ export default function TokenPage() {
           <div className="utility-list">{utilities.map(([number, title, copy]) => <article key={number}><span>{number}</span><h3>{title}</h3><p>{copy}</p><b>↗</b></article>)}</div>
         </section>
 
-        <section className="alignment-section"><div className="alignment-quote"><span>“</span><p>A network is only as autonomous as the economic guarantees behind its participants.</p></div><div className="alignment-rings"><i /><i /><i /><b>ALIGNMENT<br />BY DESIGN</b></div></section>
+        <section className="alignment-section"><div className="alignment-quote"><span>“</span><p>A network is only as autonomous as the economic guarantees behind its participants.</p></div><div className="alignment-rings"><AsciiField rows={14} cols={26} variant="wave" className="field-cover field-align" /><i /><i /><i /><b>ALIGNMENT<br />BY DESIGN</b></div></section>
 
         <section className="page-next"><p className="section-label">Next / Start building</p><h2>Build for the economy<br /><em>that agents deserve.</em></h2><Link className="button button-coral" href="/developers">Developer resources <ArrowIcon /></Link></section>
       </main>

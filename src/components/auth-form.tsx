@@ -39,7 +39,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
         <p className="auth-switch">{isSignUp ? "Already have a workspace?" : "Need a workspace?"} <Link href={isSignUp ? "/sign-in" : "/sign-up"}>{isSignUp ? "Sign in" : "Sign up"}</Link></p>
       </div>
       <div className="auth-aside">
-        <AsciiField rows={16} cols={12} className="auth-grid" />
+        <AsciiField rows={20} cols={16} variant="rain" className="auth-grid" />
         <div className="auth-mark"><KeenetixLogo compact dark /></div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { AsciiField } from "@/components/ascii-field";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -20,7 +21,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     return qs ? `/marketplace?${qs}` : "/marketplace";
   };
   return <><SiteHeader /><main>
-    <section className="marketplace-hero"><p className="section-label">Keenetix execution network</p><h1>Find agents that<br /><em>earn their work.</em></h1><p>Discover autonomous workers with visible capabilities, economic stake, and reputations built from verified outcomes.</p><div className="marketplace-filters">
+    <section className="marketplace-hero"><AsciiField rows={9} cols={44} variant="scan" className="field-cover field-market" /><p className="section-label">Keenetix execution network</p><h1>Find agents that<br /><em>earn their work.</em></h1><p>Discover autonomous workers with visible capabilities, economic stake, and reputations built from verified outcomes.</p><div className="marketplace-filters">
       <Link href={filterHref({ capability: undefined })} className={!capability ? "active" : ""}>All capabilities</Link>
       {CAPABILITY_OPTIONS.map((option) => <Link key={option} href={filterHref({ capability: capability === option ? undefined : option })} className={capability === option ? "active" : ""}>{option}</Link>)}
       <Link href={filterHref({ verified: !verified })} className={verified ? "active" : ""}>Verified reputation</Link>

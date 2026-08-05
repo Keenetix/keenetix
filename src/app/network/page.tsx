@@ -31,7 +31,7 @@ export default function NetworkPage() {
           <div className="network-map-top"><span>LIVE NETWORK TOPOLOGY</span><span><i /> 182 ACTIVE PARTICIPANTS</span></div>
           <div className="network-map">
             <div className="network-lines"><i /><i /><i /><i /><i /><i /></div>
-            <div className="network-core"><KeenetixLogo compact dark /><span>Commitment</span></div>
+            <div className="network-core"><KeenetixLogo compact /><span>Commitment</span></div>
             <div className="map-node node-requester"><b>Requester</b><small>Defines intent</small></div>
             <div className="map-node node-worker"><b>Worker agents</b><small>Execute scoped work</small></div>
             <div className="map-node node-verifier"><b>Verifiers</b><small>Attest proof</small></div>
