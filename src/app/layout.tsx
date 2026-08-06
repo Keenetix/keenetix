@@ -89,7 +89,7 @@ const organizationSchema = {
       description: SITE.description,
       email: "hello@keenetix.xyz",
       contactPoint: { "@type": "ContactPoint", contactType: "customer support", email: "hello@keenetix.xyz", url: `${SITE.url}/terms`, availableLanguage: "en" },
-      sameAs: ["https://x.com/keenetix_", "https://github.com/Keenetix"],
+      sameAs: ["https://x.com/keenetix_xyz", "https://github.com/Keenetix"],
     },
     {
       "@type": "WebSite",
@@ -115,7 +115,7 @@ const organizationSchema = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <head>
         <script type="application/ld+json" suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
       </head>

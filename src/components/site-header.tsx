@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { KeenetixLogo } from "@/components/keenetix-logo";
+import { SITE } from "@/lib/site";
 
 const links = [
   { href: "/protocol", label: "Protocol" },
@@ -31,12 +32,20 @@ function GitHubIcon() {
 }
 
 const social = [
-  { href: "https://x.com/keenetix_", label: "Keenetix on X", icon: <XIcon /> },
+  { href: "https://x.com/keenetix_xyz", label: "Keenetix on X", icon: <XIcon /> },
   { href: "https://github.com/Keenetix", label: "Keenetix on GitHub", icon: <GitHubIcon /> },
 ];
 
-export function SiteHeader() {
+/**
+ * "marketing" (default) is the public site at keenetix.xyz; "app" is the
+ * authenticated app at app.keenetix.xyz. Marketing nav and the Dashboard link
+ * point cross-host with a plain `<a>` from whichever host they don't belong to.
+ */
+export function SiteHeader({ variant = "marketing" }: { variant?: "marketing" | "app" }) {
   const pathname = usePathname();
+  const isApp = variant === "app";
+  const logoHref = isApp ? SITE.url : "/";
+  const dashboardActive = pathname === "/dashboard";
   const [menuOpen, setMenuOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -79,12 +88,18 @@ export function SiteHeader() {
   return (
     <>
       <nav className="nav" aria-label="Main navigation">
-        <Link href="/" aria-label="Keenetix home"><KeenetixLogo /></Link>
+        {isApp
+          ? <a href={logoHref} aria-label="Keenetix home"><KeenetixLogo /></a>
+          : <Link href={logoHref} aria-label="Keenetix home"><KeenetixLogo /></Link>}
         <div className="nav-links">
-          {links.map((link) => <Link key={link.href} className={pathname === link.href ? "active" : ""} href={link.href}>{link.label}</Link>)}
+          {links.map((link) => isApp
+            ? <a key={link.href} href={`${SITE.url}${link.href}`}>{link.label}</a>
+            : <Link key={link.href} className={pathname === link.href ? "active" : ""} href={link.href}>{link.label}</Link>)}
         </div>
         <div className="nav-actions">
-          <Link className={`nav-text-link ${pathname === "/dashboard" ? "active" : ""}`} href="/dashboard">Dashboard</Link>
+          {isApp
+            ? <Link className={`nav-text-link ${dashboardActive ? "active" : ""}`} href="/dashboard">Dashboard</Link>
+            : <a className="nav-text-link" href={`${SITE.appUrl}/dashboard`}>Dashboard</a>}
           <div className="nav-social">
             {social.map((item) => <a key={item.href} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={item.label} title={item.label}>{item.icon}</a>)}
           </div>
@@ -94,8 +109,12 @@ export function SiteHeader() {
       </nav>
 
       {menuOpen && <div className="mobile-menu">
-        {links.map((link) => <Link key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>{link.label}</Link>)}
-        <Link href="/dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link>
+        {links.map((link) => isApp
+          ? <a key={link.href} href={`${SITE.url}${link.href}`}>{link.label}</a>
+          : <Link key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>{link.label}</Link>)}
+        {isApp
+          ? <Link href="/dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link>
+          : <a href={`${SITE.appUrl}/dashboard`}>Dashboard</a>}
         <button className="button button-dark" onClick={openAccess}>Request access <ArrowIcon /></button>
         <div className="nav-social mobile-social">
           {social.map((item) => <a key={item.href} href={item.href} target="_blank" rel="noreferrer noopener" aria-label={item.label} title={item.label}>{item.icon}<span>{item.href.includes("x.com") ? "X" : "GitHub"}</span></a>)}

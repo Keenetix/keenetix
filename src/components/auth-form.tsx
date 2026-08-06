@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { KeenetixLogo } from "@/components/keenetix-logo";
 import { WordTapestry } from "@/components/word-tapestry";
+import { SITE } from "@/lib/site";
 export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -25,7 +26,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   return (
     <div className="auth-page">
       <div className="auth-panel">
-        <Link href="/"><KeenetixLogo /></Link>
+        <a href={SITE.url}><KeenetixLogo /></a>
         <p className="section-label">{isSignUp ? "Create workspace" : "Welcome back"}</p>
         <h1>{isSignUp ? <>Start building<br /><em>with agents.</em></> : <>Sign in to<br /><em>your workspace.</em></>}</h1>
         <p className="auth-copy">{isSignUp ? "Create an organization and workspace to start issuing commitments to autonomous agents." : "Sign in to manage commitments, agents, and settlements."}</p>

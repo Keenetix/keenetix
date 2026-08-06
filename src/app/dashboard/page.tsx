@@ -10,5 +10,5 @@ export const metadata = privateMetadata("Dashboard", "Manage commitments, agents
 
 export default async function DashboardPage() {
   if (!await getCurrentIdentity()) redirect("/sign-in?next=/dashboard");
-  return <><SiteHeader /><main className="dashboard-page"><Suspense fallback={<div className="dashboard-loading"><span /><p>Loading your Keenetix workspace…</p></div>}><DashboardWorkspace /></Suspense></main><SiteFooter /></>;
+  return <><SiteHeader variant="app" /><main className="dashboard-page"><Suspense fallback={<div className="dashboard-loading"><span /><p>Loading your Keenetix workspace…</p></div>}><DashboardWorkspace /></Suspense></main><SiteFooter variant="app" /></>;
 }

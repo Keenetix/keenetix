@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { KeenetixLogo } from "@/components/keenetix-logo";
+import { SITE } from "@/lib/site";
 
 const productLinks = [
   { href: "/protocol", label: "Protocol" },
@@ -12,8 +13,8 @@ const productLinks = [
 const buildLinks = [
   { href: "/developers", label: "Developers" },
   { href: "/docs", label: "Docs" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/settlement", label: "Settlement" },
+  { href: "/dashboard", label: "Dashboard", app: true },
+  { href: "/settlement", label: "Settlement", app: true },
   { href: "/brand", label: "Brand" },
 ];
 
@@ -22,14 +23,29 @@ const legalLinks = [
   { href: "/security", label: "Security" },
 ];
 
-export function SiteFooter() {
+type FooterLinkItem = { href: string; label: string; app?: boolean };
+
+/** "marketing" (default) is keenetix.xyz; "app" is app.keenetix.xyz. Links that
+ * don't belong to the current host render as a plain `<a>` to the other one. */
+export function SiteFooter({ variant = "marketing" }: { variant?: "marketing" | "app" }) {
+  const isApp = variant === "app";
+
+  const renderLink = ({ href, label, app }: FooterLinkItem) => {
+    const crossHost = isApp ? !app : Boolean(app);
+    return crossHost
+      ? <a key={href} href={`${isApp ? SITE.url : SITE.appUrl}${href}`}>{label}</a>
+      : <Link key={href} href={href}>{label}</Link>;
+  };
+
   return (
     <footer>
       <div className="footer-brand">
-        <Link href="/" aria-label="Keenetix home"><KeenetixLogo /></Link>
+        {isApp
+          ? <a href={SITE.url} aria-label="Keenetix home"><KeenetixLogo /></a>
+          : <Link href="/" aria-label="Keenetix home"><KeenetixLogo /></Link>}
         <p>Economic infrastructure for autonomous intelligence.</p>
         <div className="footer-social">
-          <a href="https://x.com/keenetix_" target="_blank" rel="noreferrer noopener" aria-label="Keenetix on X">
+          <a href="https://x.com/keenetix_xyz" target="_blank" rel="noreferrer noopener" aria-label="Keenetix on X">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
             <span>X</span>
           </a>
@@ -40,9 +56,9 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="footer-columns">
-        <div><p>Protocol</p>{productLinks.map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}</div>
-        <div><p>Build</p>{buildLinks.map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}</div>
-        <div><p>Legal</p>{legalLinks.map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}</div>
+        <div><p>Protocol</p>{productLinks.map(renderLink)}</div>
+        <div><p>Build</p>{buildLinks.map(renderLink)}</div>
+        <div><p>Legal</p>{legalLinks.map(renderLink)}</div>
       </div>
       <span className="copyright">© 2026 KEENETIX PROTOCOL</span>
     </footer>

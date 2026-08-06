@@ -572,7 +572,7 @@ footer {
 .console-head { align-items: center; display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; margin-top: 14px; }
 .console-head h3 { color: var(--forest); font-size: 33px; font-weight: 500; letter-spacing: -.05em; margin: 0; }
 /* Decorative: this console is a still of the product, so the action is not a link. */
-.console-action { cursor: default; font-size: 13px; padding: 13px 20px; pointer-events: none; }
+.console-action { font-size: 13px; padding: 13px 20px; }
 
 .console-stats { background: var(--line); display: grid; gap: 1px; grid-template-columns: repeat(4, 1fr); margin: 26px 0 0; }
 .console-stats > div { background: #fff; padding: 20px 22px; }
@@ -580,7 +580,9 @@ footer {
 .console-stats dd { color: #6e766f; font-size: 12px; margin: 6px 0 0; }
 
 .console-table { background: var(--line); display: grid; gap: 1px; margin-top: 22px; }
-.console-row { align-items: center; background: #fff; display: grid; gap: 18px; grid-template-columns: 2.4fr 1fr .8fr .9fr; padding: 17px 22px; }
+.console-row { align-items: center; background: #fff; display: grid; gap: 18px; grid-template-columns: 2.4fr 1fr .8fr .9fr; padding: 17px 22px; text-decoration: none; transition: background .16s ease; }
+a.console-row:hover { background: var(--panel); }
+a.console-row:focus-visible { outline: 2px solid var(--coral); outline-offset: -2px; }
 .console-head-row { color: #8b928b; font-family: "Courier New", monospace; font-size: 11px; letter-spacing: .1em; padding: 14px 22px; text-transform: uppercase; }
 .console-row b { color: var(--forest); display: block; font-size: 15px; font-weight: 500; letter-spacing: -.03em; }
 .console-row small { color: #8b928b; display: block; font-family: "Courier New", monospace; font-size: 11px; margin-top: 5px; }

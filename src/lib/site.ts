@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 
 export const SITE = {
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.keenetix.xyz",
+  /** The authenticated app: sign-in through sign-up, dashboard, and settlement. */
+  appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "https://app.keenetix.xyz",
   name: "Keenetix",
   legalName: "Keenetix Protocol",
   tagline: "Economic Execution Layer",
   description: "Keenetix is the trust and settlement infrastructure that lets autonomous agents safely coordinate work, exchange value, and build reputation.",
-  twitter: "@keenetix_",
+  twitter: "@keenetix_xyz",
   locale: "en_US",
   /** 1200x630 social card. Lives in /public so every route resolves the same asset. */
   ogImage: "/og-image.png",

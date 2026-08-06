@@ -1,22 +1,31 @@
 "use client";
-import { useState } from "react";
+import Link from "next/link";
+import { useRef, useSyncExternalStore } from "react";
+import { SITE } from "@/lib/site";
 
 type Row = { title: string; id: string; cells: [string, string]; state: string; tone: "ok" | "pending" };
 type Surface = {
+  key: string;
   tab: string;
+  href: string;
+  /** True for the dashboard: it lives on the app subdomain, not this marketing page's host. */
+  crossHost?: boolean;
   path: string;
   crumb: string;
   title: string;
+  lead: string;
   action: string;
   stats: [string, string][];
-  lead: string;
   columns: [string, string, string];
   rows: Row[];
 };
 
 const SURFACES: Surface[] = [
   {
+    key: "dashboard",
     tab: "Dashboard",
+    href: "/dashboard",
+    crossHost: true,
     path: "workspace / commitments",
     crumb: "Workspace / Northwind Labs",
     title: "Commitments",
@@ -33,7 +42,9 @@ const SURFACES: Surface[] = [
     ],
   },
   {
+    key: "marketplace",
     tab: "Marketplace",
+    href: "/marketplace",
     path: "marketplace / agents",
     crumb: "Marketplace / Verified agents",
     title: "Agents",
@@ -50,7 +61,9 @@ const SURFACES: Surface[] = [
     ],
   },
   {
+    key: "demo",
     tab: "Demo",
+    href: "/demo",
     path: "demo / sandbox",
     crumb: "Sandbox / Simulated network",
     title: "Live simulation",
@@ -67,7 +80,9 @@ const SURFACES: Surface[] = [
     ],
   },
   {
+    key: "docs",
     tab: "Docs",
+    href: "/docs",
     path: "docs / api",
     crumb: "Docs / API reference",
     title: "API reference",
@@ -85,10 +100,42 @@ const SURFACES: Surface[] = [
   },
 ];
 
-/** The product, shown as one console with four switchable surfaces. */
+function subscribeToHash(callback: () => void) {
+  window.addEventListener("hashchange", callback);
+  return () => window.removeEventListener("hashchange", callback);
+}
+const getHash = () => window.location.hash.slice(1);
+const getServerHash = () => "";
+
+/** The product, shown as one console with four switchable, deep-linkable surfaces. */
 export function SurfaceConsole() {
-  const [index, setIndex] = useState(0);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // The active tab is the URL hash itself (e.g. #marketplace); useSyncExternalStore
+  // keeps it in sync with back/forward navigation without setState in an effect.
+  const hash = useSyncExternalStore(subscribeToHash, getHash, getServerHash);
+  const hashIndex = SURFACES.findIndex((item) => item.key === hash);
+  const index = hashIndex >= 0 ? hashIndex : 0;
   const surface = SURFACES[index];
+
+  const select = (position: number) => {
+    history.replaceState(null, "", `#${SURFACES[position].key}`);
+    // replaceState doesn't fire hashchange itself, so nudge the store to resync.
+    window.dispatchEvent(new Event("hashchange"));
+  };
+
+  const onTabKeyDown = (event: React.KeyboardEvent, position: number) => {
+    const last = SURFACES.length - 1;
+    const next = event.key === "ArrowRight" ? (position === last ? 0 : position + 1)
+      : event.key === "ArrowLeft" ? (position === 0 ? last : position - 1)
+      : event.key === "Home" ? 0
+      : event.key === "End" ? last
+      : null;
+    if (next === null) return;
+    event.preventDefault();
+    select(next);
+    tabRefs.current[next]?.focus();
+  };
 
   return (
     <section className="surfaces-section">
@@ -100,14 +147,17 @@ export function SurfaceConsole() {
         <div className="surface-tabs" role="tablist" aria-label="Product surfaces">
           {SURFACES.map((item, position) => (
             <button
-              key={item.tab}
+              key={item.key}
+              ref={(el) => { tabRefs.current[position] = el; }}
               type="button"
               role="tab"
-              id={`surface-tab-${position}`}
+              id={`surface-tab-${item.key}`}
               aria-selected={position === index}
-              aria-controls="surface-panel"
+              aria-controls={`surface-panel-${item.key}`}
+              tabIndex={position === index ? 0 : -1}
               className={position === index ? "is-active" : ""}
-              onClick={() => setIndex(position)}
+              onClick={() => select(position)}
+              onKeyDown={(event) => onTabKeyDown(event, position)}
             >
               {item.tab}
             </button>
@@ -120,11 +170,13 @@ export function SurfaceConsole() {
           <span className="console-path">app.keenetix.xyz&nbsp;/&nbsp;{surface.path}</span>
           <span className="console-live"><i /> Live</span>
         </div>
-        <div className="console-body" role="tabpanel" id="surface-panel" aria-labelledby={`surface-tab-${index}`}>
+        <div className="console-body" role="tabpanel" id={`surface-panel-${surface.key}`} aria-labelledby={`surface-tab-${surface.key}`}>
           <p className="console-crumb">{surface.crumb}</p>
           <div className="console-head">
             <h3>{surface.title}</h3>
-            <span className="button button-coral console-action">{surface.action}</span>
+            {surface.crossHost
+              ? <a className="button button-coral console-action" href={`${SITE.appUrl}${surface.href}`}>{surface.action}</a>
+              : <Link className="button button-coral console-action" href={surface.href}>{surface.action}</Link>}
           </div>
           <dl className="console-stats">
             {surface.stats.map(([value, label]) => <div key={label}><dt>{value}</dt><dd>{label}</dd></div>)}
@@ -134,14 +186,17 @@ export function SurfaceConsole() {
               <span>{surface.lead}</span>
               {surface.columns.map((column) => <span key={column}>{column}</span>)}
             </div>
-            {surface.rows.map((row) => (
-              <div className="console-row" key={row.id + row.title}>
+            {surface.rows.map((row) => {
+              const cells = <>
                 <span><b>{row.title}</b><small>{row.id}</small></span>
                 <span>{row.cells[0]}</span>
                 <span>{row.cells[1]}</span>
                 <span><i className={`console-state state-${row.tone}`}>{row.state}</i></span>
-              </div>
-            ))}
+              </>;
+              return surface.crossHost
+                ? <a className="console-row" href={`${SITE.appUrl}${surface.href}`} key={row.id + row.title}>{cells}</a>
+                : <Link className="console-row" href={surface.href} key={row.id + row.title}>{cells}</Link>;
+            })}
           </div>
         </div>
       </div>

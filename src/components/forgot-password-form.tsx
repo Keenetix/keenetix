@@ -3,6 +3,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { KeenetixLogo } from "@/components/keenetix-logo";
 import { WordTapestry } from "@/components/word-tapestry";
+import { SITE } from "@/lib/site";
 export function ForgotPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -17,7 +18,7 @@ export function ForgotPasswordForm() {
   return (
     <div className="auth-page">
       <div className="auth-panel">
-        <Link href="/"><KeenetixLogo /></Link>
+        <a href={SITE.url}><KeenetixLogo /></a>
         <p className="section-label">Reset password</p>
         <h1>Forgot your<br /><em>password?</em></h1>
         <p className="auth-copy">Enter the email on your account and we&apos;ll send you a link to reset your password.</p>

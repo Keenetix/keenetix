@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { KeenetixLogo } from "@/components/keenetix-logo";
 import { WordTapestry } from "@/components/word-tapestry";
+import { SITE } from "@/lib/site";
 export function ResetPasswordForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -23,7 +24,7 @@ export function ResetPasswordForm() {
   return (
     <div className="auth-page">
       <div className="auth-panel">
-        <Link href="/"><KeenetixLogo /></Link>
+        <a href={SITE.url}><KeenetixLogo /></a>
         <p className="section-label">Reset password</p>
         <h1>Choose a new<br /><em>password.</em></h1>
         {token ? (

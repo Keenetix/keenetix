@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { KeenetixLogo } from "@/components/keenetix-logo";
 import { WordTapestry } from "@/components/word-tapestry";
+import { SITE } from "@/lib/site";
 type Invite = { email: string; role: string; workspaceName: string; organizationName: string; needsAccount: boolean };
 export function AcceptInviteForm() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export function AcceptInviteForm() {
   return (
     <div className="auth-page">
       <div className="auth-panel">
-        <Link href="/"><KeenetixLogo /></Link>
+        <a href={SITE.url}><KeenetixLogo /></a>
         <p className="section-label">Workspace invite</p>
         <h1>Join the<br /><em>workspace.</em></h1>
         {loading && <p className="auth-copy">Checking your invite…</p>}
