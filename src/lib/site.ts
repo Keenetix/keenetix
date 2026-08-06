@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const SITE = {
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://keenetix.xyz",
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.keenetix.xyz",
   name: "Keenetix",
   legalName: "Keenetix Labs",
   tagline: "Economic Execution Layer",
