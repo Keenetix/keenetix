@@ -6,7 +6,7 @@ export class Keenetix {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   constructor(config: KeenetixConfig) {
-    this.baseUrl = (config.baseUrl ?? "https://api.keenetix.network").replace(/\/$/, "");
+    this.baseUrl = (config.baseUrl ?? "https://www.keenetix.xyz").replace(/\/$/, "");
     this.apiKey = config.apiKey;
   }
   commitments = {

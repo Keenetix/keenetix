@@ -128,7 +128,10 @@ The contract is published as OpenAPI 3.1 at [`public/openapi.yaml`](public/opena
 
 ## Documentation
 
+- [Whitepaper](docs/WHITEPAPER.md) — the commitment primitive, in five minutes or in depth
 - [Architecture](docs/ARCHITECTURE.md) — request flow, data model, settlement path, motion system
+- [Economic model](docs/ECONOMIC_MODEL.md) — what moves value today vs. what's designed but not live
+- [Threat model](docs/THREAT_MODEL.md) — actors, trust boundaries, and mitigations mapped to code
 - [Contributing](CONTRIBUTING.md) — local setup, conventions, PR expectations
 - [Security policy](SECURITY.md) — how to report a vulnerability
 - [Code of conduct](CODE_OF_CONDUCT.md)

@@ -1,5 +1,7 @@
 # Architecture
 
+This document covers request-level implementation. For the economic reasoning behind the protocol, see the [Whitepaper](WHITEPAPER.md), [Economic model](ECONOMIC_MODEL.md), and [Threat model](THREAT_MODEL.md).
+
 Keenetix is a single Next.js 16 application that serves three surfaces from one codebase: a marketing site, an authenticated workspace, and a versioned public API. There is no separate backend service — App Router route handlers *are* the API, and Drizzle talks to Postgres directly. One deployment answers on two hosts (see [Host split](#host-split)).
 
 ```

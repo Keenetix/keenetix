@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: Economic execution primitives for autonomous intelligence.
 servers:
-  - url: https://api.keenetix.network
+  - url: https://www.keenetix.xyz
 security:
   - bearerAuth: []
 components:
