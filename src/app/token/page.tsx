@@ -40,7 +40,7 @@ export default function TokenPage() {
           <div className="kntx-launch-copy">
             <p className="section-label">Launch</p>
             <h2>How the token works.<br /><em>Fair launch.</em></h2>
-            <p>$KNTX launches on EasyA Kickstart, a fair launch launchpad on Base. Every buyer moves along the same bonding curve — no presale, no insider allocation. Once the curve completes, $KNTX graduates to Aerodrome with real on-chain liquidity.</p>
+            <p>$KNTX launches on EasyA Kickstart, a fair launch launchpad on Solana. Every buyer moves along the same bonding curve — no presale, no insider allocation. Once the curve completes, $KNTX automatically migrates into a permanent, locked Meteora DAMM v1 or v2 liquidity pool.</p>
           </div>
         </section>
 
