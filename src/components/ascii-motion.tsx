@@ -68,7 +68,9 @@ export function AsciiMotion() {
     };
 
     document.documentElement.classList.add("ascii-motion");
-    scan();
+    // Defer past the initial paint so Suspense-wrapped content (e.g. AuthForm)
+    // finishes hydrating before this mutates its DOM.
+    const initialScan = window.requestAnimationFrame(scan);
 
     let pending = 0;
     const mutations = new MutationObserver(() => {
@@ -80,6 +82,7 @@ export function AsciiMotion() {
     return () => {
       observer.disconnect();
       mutations.disconnect();
+      window.cancelAnimationFrame(initialScan);
       window.clearTimeout(pending);
       document.documentElement.classList.remove("ascii-motion");
     };

@@ -66,7 +66,7 @@ export function AsciiField({
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const i = intensity(variant, x, y, cols, rows, 0);
-        cells.push({ char: glyph(i), opacity: 0.12 + i * 0.88 });
+        cells.push({ char: glyph(i), opacity: Number((0.12 + i * 0.88).toFixed(2)) });
       }
     }
     return cells;
