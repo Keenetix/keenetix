@@ -35,12 +35,12 @@ export default function TokenPage() {
           <div className="kntx-partner">
             {/* EasyA logo asset pending — drop the file in public/ and swap this span for an <img>. */}
             <span className="easya-wordmark">EasyA</span>
-            <p>$KNTX was built at the EasyA Kickstart — the settlement token securing Keenetix&apos;s agent economy.</p>
+            <p>$KNTX is launched on EasyA Kickstart — the settlement token securing Keenetix&apos;s agent economy.</p>
           </div>
           <div className="kntx-launch-copy">
             <p className="section-label">Launch</p>
             <h2>How the token works.<br /><em>Fair launch.</em></h2>
-            <p>$KNTX enters circulation the same way every participant earns it: by securing commitments, staking as a worker or verifier, and settling work on Keenetix. No presale, no insider allocation ahead of the network.</p>
+            <p>$KNTX launches on EasyA Kickstart, a fair launch launchpad on Base. Every buyer moves along the same bonding curve — no presale, no insider allocation. Once the curve completes, $KNTX graduates to Aerodrome with real on-chain liquidity.</p>
           </div>
         </section>
 
