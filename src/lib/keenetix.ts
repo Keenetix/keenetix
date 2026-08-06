@@ -8,6 +8,21 @@ const PUBLIC_DEMO_EMAIL = "demo@keenetix.local";
 const PUBLIC_DEMO_WORKSPACE = "public-demo";
 export type DemoAction = "fund" | "assign" | "verify" | "settle" | "reset";
 const defaultRules = ["All CI checks pass", "Security scan is clear", "Reviewer attestation recorded"];
+/** Starter roster every new workspace gets, private by default. */
+const STARTER_AGENTS = [
+  { name: "Iris", role: "Software engineering agent", description: "Autonomous full-stack software delivery, test remediation, and refactors.", capabilities: ["typescript", "github", "ci-cd", "security"], hourlyRate: "125.00", stakeAmount: "2400.00", walletAddress: "0x8d31...bE4a", reputation: "98.70", completedCommitments: 128, totalEarnings: "48200.00" },
+  { name: "Vector", role: "Infrastructure agent", description: "Deployments, cloud reliability, and infrastructure-as-code execution.", capabilities: ["terraform", "kubernetes", "aws", "deployments"], hourlyRate: "148.00", stakeAmount: "3100.00", walletAddress: "0x5c12...Aa11", reputation: "97.90", completedCommitments: 94, totalEarnings: "39750.00" },
+  { name: "Morrow", role: "Verification agent", description: "Independent CI, security, and delivery proof attestation.", capabilities: ["verification", "security", "attestation"], hourlyRate: "92.00", stakeAmount: "5200.00", walletAddress: "0x7f99...D210", reputation: "99.10", completedCommitments: 211, totalEarnings: "61350.00" },
+];
+/** Extra agents shown only in the public marketplace, for browsing variety. */
+const MARKETPLACE_AGENTS = [
+  { name: "Ledger", role: "Finance & reconciliation agent", description: "Vendor invoice matching, ledger reconciliation, and expense reporting.", capabilities: ["accounting", "reconciliation", "reporting"], hourlyRate: "95.00", stakeAmount: "1800.00", walletAddress: "0x2a47...C903", reputation: "97.40", completedCommitments: 63, totalEarnings: "18900.00" },
+  { name: "Corpus", role: "Research & synthesis agent", description: "Long-context research, document synthesis, and summarization at scale.", capabilities: ["research", "summarization", "long-context"], hourlyRate: "110.00", stakeAmount: "2000.00", walletAddress: "0x91e6...F217", reputation: "96.80", completedCommitments: 41, totalEarnings: "14300.00" },
+  { name: "Sentry", role: "Security & compliance agent", description: "Vulnerability scanning, SOC2 evidence collection, and audit preparation.", capabilities: ["security", "compliance", "evidence"], hourlyRate: "160.00", stakeAmount: "4200.00", walletAddress: "0x4b78...9A02", reputation: "99.30", completedCommitments: 87, totalEarnings: "36100.00" },
+  { name: "Atlas", role: "Data & taxonomy agent", description: "Schema design, ETL pipelines, and large-scale data backfills.", capabilities: ["data", "etl", "schema"], hourlyRate: "118.00", stakeAmount: "2600.00", walletAddress: "0xc015...7Ee4", reputation: "96.20", completedCommitments: 55, totalEarnings: "19500.00" },
+  { name: "Lex", role: "Legal & policy agent", description: "Licence review, contract redlines, and regulatory policy checks.", capabilities: ["legal", "licensing", "policy-review"], hourlyRate: "175.00", stakeAmount: "3800.00", walletAddress: "0x6f23...B588", reputation: "98.10", completedCommitments: 29, totalEarnings: "15900.00" },
+  { name: "Wren", role: "Frontend & design agent", description: "Component implementation, design-system upkeep, and accessibility passes.", capabilities: ["react", "design-systems", "accessibility"], hourlyRate: "132.00", stakeAmount: "2100.00", walletAddress: "0xa839...1Dc6", reputation: "97.60", completedCommitments: 48, totalEarnings: "20700.00" },
+];
 export async function ensureWorkspace(workspaceId: number) {
   const [workspace] = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
   if (!workspace) throw new Error("Workspace not found.");
@@ -17,11 +32,8 @@ export async function ensureWorkspace(workspaceId: number) {
   let workerList = await db.select().from(agents).where(eq(agents.workspaceId, workspace.id)).orderBy(agents.id);
   if (!workerList.length) {
     const isPublic = workspace.slug === PUBLIC_DEMO_WORKSPACE;
-    workerList = await db.insert(agents).values([
-      { workspaceId: workspace.id, name: "Iris", role: "Software engineering agent", description: "Autonomous full-stack software delivery, test remediation, and refactors.", capabilities: ["typescript", "github", "ci-cd", "security"], hourlyRate: "125.00", stakeAmount: "2400.00", isPublic, walletAddress: "0x8d31...bE4a", reputation: "98.70", completedCommitments: 128, totalEarnings: "48200.00" },
-      { workspaceId: workspace.id, name: "Vector", role: "Infrastructure agent", description: "Deployments, cloud reliability, and infrastructure-as-code execution.", capabilities: ["terraform", "kubernetes", "aws", "deployments"], hourlyRate: "148.00", stakeAmount: "3100.00", isPublic, walletAddress: "0x5c12...Aa11", reputation: "97.90", completedCommitments: 94, totalEarnings: "39750.00" },
-      { workspaceId: workspace.id, name: "Morrow", role: "Verification agent", description: "Independent CI, security, and delivery proof attestation.", capabilities: ["verification", "security", "attestation"], hourlyRate: "92.00", stakeAmount: "5200.00", isPublic, walletAddress: "0x7f99...D210", reputation: "99.10", completedCommitments: 211, totalEarnings: "61350.00" },
-    ]).returning();
+    const roster = isPublic ? [...STARTER_AGENTS, ...MARKETPLACE_AGENTS] : STARTER_AGENTS;
+    workerList = await db.insert(agents).values(roster.map((agent) => ({ ...agent, workspaceId: workspace.id, isPublic }))).returning();
   }
   const [integration] = await db.select().from(verificationIntegrations).where(and(eq(verificationIntegrations.workspaceId, workspace.id), eq(verificationIntegrations.provider, "github"))).limit(1);
   if (!integration) await db.insert(verificationIntegrations).values({ workspaceId: workspace.id, provider: "github", status: "ready", configuration: { eventTypes: ["workflow_run", "check_run", "deployment_status"] } });

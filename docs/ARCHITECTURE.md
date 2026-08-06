@@ -1,17 +1,18 @@
 # Architecture
 
-Keenetix is a single Next.js 16 application that serves three surfaces from one codebase: a marketing site, an authenticated workspace, and a versioned public API. There is no separate backend service — App Router route handlers *are* the API, and Drizzle talks to Postgres directly.
+Keenetix is a single Next.js 16 application that serves three surfaces from one codebase: a marketing site, an authenticated workspace, and a versioned public API. There is no separate backend service — App Router route handlers *are* the API, and Drizzle talks to Postgres directly. One deployment answers on two hosts (see [Host split](#host-split)).
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│  Next.js App Router                                        │
+│  Next.js App Router (one deployment, two hosts)              │
 │                                                            │
-│  Marketing            Workspace           Public API       │
-│  /  /protocol         /dashboard          /api/v1/*        │
-│  /network /token      /demo               bearer keys      │
-│  /marketplace         /settlement         scoped + limited │
-│  /developers /docs    /sign-in /sign-up                    │
-│  /brand                                                    │
+│  Marketing              Workspace          Public API       │
+│  keenetix.xyz           app.keenetix.xyz   /api/v1/*        │
+│  /  /protocol           /sign-in /sign-up  bearer keys      │
+│  /network /token        /dashboard         scoped + limited │
+│  /marketplace           /settlement                         │
+│  /developers /docs      /forgot-password                    │
+│  /brand                 /accept-invite                      │
 │         │                   │                   │          │
 │         └───────────────────┴───────────────────┘          │
 │                             │                              │
@@ -34,6 +35,14 @@ Keenetix is a single Next.js 16 application that serves three surfaces from one 
    eth_getTransactionReceipt              escrow token account + SPL USDC
 ```
 
+## Host split
+
+`keenetix.xyz` is the public marketing site; `app.keenetix.xyz` is everything that touches a session — sign-in through sign-up, dashboard, settlement, password reset, and invite acceptance. Both hosts are the same Next.js deployment; nothing about routing or data access differs per host.
+
+- **`src/proxy.ts`** (Next 16 renamed `middleware.ts` → `proxy.ts`) is a safety net, not the primary mechanism: it 308-redirects a fixed list of app-only pages away from the marketing host, and `/` away from the app host, so a bookmark or stale link never strands a visitor on the wrong side.
+- The primary mechanism is that `SiteHeader` and `SiteFooter` take a `variant` prop (`"marketing"` default, `"app"` on `/dashboard` and `/settlement`). Cross-host links render as a plain `<a>`; same-host links stay a Next `<Link>`. This avoids routing a client-side `<Link>` transition across an origin boundary, which Next's router doesn't handle.
+- Session cookies are host-only (no `Domain` attribute), which is why the split is by host rather than by cookie sharing: once a visitor lands on `app.keenetix.xyz`, the entire auth flow — OAuth initiation, callback, and the resulting session — stays on that one host.
+
 ## Layers
 
 | Layer | Files | Responsibility |
@@ -49,7 +58,9 @@ Keenetix is a single Next.js 16 application that serves three surfaces from one 
 
 Everything that mutates state goes through exactly one of these.
 
-**Session cookies** — browser traffic. `getCurrentIdentity()` resolves the session cookie to a user plus their *active workspace* and role. Roles are `owner | admin | builder | member | viewer`; `canManageWorkspace()` gates writes to the first three. Sessions are stored as SHA-256 hashes, never as raw tokens.
+**Session cookies** — browser traffic. `getCurrentIdentity()` resolves the session cookie to a user plus their *active workspace* and role. Roles are `owner | admin | builder | member | viewer`; `canManageWorkspace()` gates writes to the first three. Sessions are stored as SHA-256 hashes, never as raw tokens. Account lifecycle around this path — email verification, password reset, and workspace invites (`email_verifications`, `password_resets`, `invites`) — all follow the same pattern: a random token, hashed before storage, single-use, time-boxed, delivered by `src/lib/email.ts` (Resend).
+
+Every mutating browser request (`POST`/`PUT`/`PATCH`/`DELETE` to `/api/*`) additionally passes a CSRF check in `src/proxy.ts`: the non-`httpOnly` `kntx_csrf` cookie must match an `x-csrf-token` header, so a cross-site form post can't ride an authenticated session cookie.
 
 **API keys** — machine traffic on `/api/v1/*`. `authenticateApiKey(request, scope)` does five things in order:
 
@@ -106,9 +117,9 @@ Confirmation is a two-step handshake rather than a single write: the client subm
 
 ## Data model
 
-Fourteen tables in three clusters.
+Twenty-three tables in three clusters.
 
-**Identity** — `users`, `oauth_accounts`, `sessions`, `organizations`, `organization_memberships`, `workspaces`, `workspace_memberships`. Workspaces are the tenancy boundary; organizations group them.
+**Identity** — `users`, `oauth_accounts`, `sessions`, `email_verifications`, `password_resets`, `organizations`, `organization_memberships`, `workspaces`, `workspace_memberships`, `invites`. Workspaces are the tenancy boundary; organizations group them.
 
 **Execution** — `agents`, `commitments`, `commitment_bids`, `verification_events`, `verification_integrations`, `settlements`, `reputation_records`, `disputes`.
 
@@ -118,12 +129,17 @@ Money is `numeric(14,2)` throughout — never a float. All timestamps are `withT
 
 ## Frontend motion system
 
-The site has no animation library. Two mechanisms cover everything:
+The site has no animation library. Two global mechanisms cover scroll reveal and backdrops:
 
 - **`src/components/ascii-motion.tsx`** — a single global client component. One `IntersectionObserver` reveals elements matching a selector list with a stepped `ascii-drop` / `ascii-wipe` animation, staggered by a `--ascii-i` custom property. A debounced `MutationObserver` rescans after client-rendered content mounts. Headings deliberately opt out into a softer `minimal-rise`.
 - **`src/components/ascii-field.tsx`** — animated ASCII backdrops (`wave`, `pulse`, `rain`, `scan`, `drift`). A `requestAnimationFrame` loop mutates `textContent` and `style.opacity` on child spans directly, bypassing React re-render, throttled to ~22fps and paused when off-screen or when the tab is hidden. The first frame is computed deterministically in `useMemo` at `t=0` so server and client markup match.
 
-Both check `prefers-reduced-motion` and bail out to a static frame. Fields are placed at `z-index: -1` inside parents with `isolation: isolate`, so they sit behind content without reordering markup.
+A few landing-page components carry their own small, self-contained loop instead of going through either mechanism above, because their motion is content, not a backdrop or reveal:
+
+- **`src/components/word-tapestry.tsx`** — the auth-page moiré. A `rAF` loop writes `letterSpacing` straight onto row elements from two travelling sine waves, throttled to ~18fps, gated by `IntersectionObserver` and `document.hidden`.
+- **`src/components/commitment-lifecycle.tsx`** — the six-stage walker on the landing page. A plain `setInterval` advances the active stage every 2.6s; hover, focus, or click pins it and stops the timer.
+
+All of the above check `prefers-reduced-motion` and bail out to a static frame. Fields are placed at `z-index: -1` inside parents with `isolation: isolate`, so they sit behind content without reordering markup.
 
 ## Testing and CI
 
@@ -136,6 +152,10 @@ Both check `prefers-reduced-motion` and bail out to a static frame. Fields are p
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | yes | Postgres connection string. |
+| `RESEND_API_KEY` | auth email | Sends verification, password reset, and invite email via Resend. Without it, `src/lib/email.ts` logs instead of sending. |
+| `RESEND_FROM_EMAIL` | no | From address for auth email. Defaults to Resend's sandbox sender. |
+| `APP_URL` | no | Server-side origin for OAuth `redirect_uri` and email links. Defaults to the request's own origin, which is correct as long as auth traffic only ever reaches `app.keenetix.xyz` — see [Host split](#host-split). |
+| `NEXT_PUBLIC_APP_URL` | no | Client-side counterpart of `APP_URL`, used for the cross-host links `SiteHeader`/`SiteFooter` render on the marketing site. Defaults to `https://app.keenetix.xyz`. |
 | `EVM_RPC_URL` | settlement | JSON-RPC endpoint used to confirm EVM receipts. |
 | `SOLANA_RPC_URL` | settlement | RPC endpoint used to confirm Solana signatures. |
 | `GITHUB_WEBHOOK_SECRET` | CI proof | HMAC secret for the GitHub webhook. |

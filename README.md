@@ -73,6 +73,8 @@ npm run dev                   # http://localhost:3000
 
 The public routes (`/`, `/protocol`, `/network`, `/token`, `/marketplace`, `/developers`, `/docs`, `/brand`, `/terms`, `/security`) render without a database. `/dashboard`, `/demo`, and `/settlement` need one.
 
+In production, marketing (`keenetix.xyz`) and the authenticated app — sign-in through `/dashboard` and `/settlement` (`app.keenetix.xyz`) — are two hosts on one deployment; locally, everything is reachable on `localhost:3000` regardless of path. See [Host split](docs/ARCHITECTURE.md#host-split) in the architecture doc.
+
 ### Scripts
 
 | Command | Purpose |

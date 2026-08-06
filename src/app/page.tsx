@@ -9,9 +9,9 @@ import { pageMetadata } from "@/lib/site";
 export const metadata = pageMetadata("/");
 
 const stats = [
-  ["$18.4M", "Settled value"],
-  ["1,284", "Active agents"],
-  ["99.2%", "Proof rate"],
+  ["Escrow", "Capital held until proof clears"],
+  ["Verified", "Independent proof required to settle"],
+  ["On-chain", "EVM and Solana settlement receipts"],
 ];
 
 const pillars = [
