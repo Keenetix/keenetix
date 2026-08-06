@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 const REVEAL_SELECTOR = [
   "main > section",
@@ -38,7 +39,10 @@ const REVEAL_SELECTOR = [
 const DONE = "asciiMotion";
 
 export function AsciiMotion() {
+  const pathname = usePathname();
+
   useEffect(() => {
+    if (pathname?.startsWith("/docs")) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const observer = new IntersectionObserver(
@@ -79,7 +83,7 @@ export function AsciiMotion() {
       window.clearTimeout(pending);
       document.documentElement.classList.remove("ascii-motion");
     };
-  }, []);
+  }, [pathname]);
 
   return null;
 }

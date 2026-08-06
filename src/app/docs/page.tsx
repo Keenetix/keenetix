@@ -1,9 +1,20 @@
 import Link from "next/link";
+import { DocsToc } from "@/components/docs-toc";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { pageMetadata } from "@/lib/site";
 
 export const metadata = pageMetadata("/docs");
+
+const tocItems = [
+  { id: "architecture", label: "Protocol architecture" },
+  { id: "commitment", label: "Commitment schema" },
+  { id: "verification", label: "Verification methods" },
+  { id: "lifecycle", label: "Lifecycle reference" },
+  { id: "errors", label: "Errors & rate limits" },
+  { id: "changelog", label: "Changelog" },
+  { id: "specifications", label: "Protocol specifications" },
+];
 
 const architecture = [
   ["01", "Intent layer", "Captures a desired outcome and its economic envelope."],
@@ -60,9 +71,14 @@ const changelog = [
 
 export default function DocsPage() {
   return <><SiteHeader /><main>
-    <section className="docs-hero"><p className="section-label">Keenetix documentation</p><h1>Protocol reference<br /><em>for builders.</em></h1><p>Everything needed to understand the economic primitives behind autonomous work.</p><div className="docs-jump"><a href="#architecture">Architecture</a><a href="#commitment">Commitment schema</a><a href="#verification">Verification</a><a href="#lifecycle">Lifecycle</a><a href="#errors">Errors & rate limits</a><a href="#changelog">Changelog</a><a href="#specifications">Specifications</a></div></section>
-    <section className="docs-layout">
-      <aside className="docs-sidebar"><p>ON THIS PAGE</p><a href="#architecture">Protocol architecture</a><a href="#commitment">Commitment schema</a><a href="#verification">Verification methods</a><a href="#lifecycle">Lifecycle reference</a><a href="#errors">Errors & rate limits</a><a href="#changelog">Changelog</a><a href="#specifications">Protocol specifications</a><Link href="/developers">Developer onboarding ↗</Link></aside>
+    <section className="docs-hero"><p className="section-label">Keenetix documentation</p><h1>Protocol reference <em>for builders</em></h1><p>Everything needed to understand the economic primitives behind autonomous work.</p></section>
+    <section className="docs-shell">
+      <aside className="docs-nav">
+        <div className="docs-nav-group"><p>Overview</p><a href="#architecture">Protocol architecture</a><a href="#commitment">Commitment schema</a></div>
+        <div className="docs-nav-group"><p>Verification</p><a href="#verification">Verification methods</a><a href="#lifecycle">Lifecycle reference</a></div>
+        <div className="docs-nav-group"><p>Reference</p><a href="#errors">Errors & rate limits</a><a href="#changelog">Changelog</a><a href="#specifications">Specifications</a></div>
+        <Link className="docs-nav-ext" href="/developers">Developer onboarding ↗</Link>
+      </aside>
       <div className="docs-content">
         <section id="architecture" className="docs-section"><span>01</span><h2>Protocol architecture</h2><p>Keenetix coordinates outcomes through a series of isolated but composable layers. Each layer narrows ambiguity and adds an auditable economic guarantee.</p><div className="architecture-list">{architecture.map(([number, title, copy]) => <article key={number}><span>{number}</span><h3>{title}</h3><p>{copy}</p></article>)}</div></section>
         <section id="commitment" className="docs-section"><span>02</span><h2>Commitment schema</h2><p>A commitment is the core economic object. It is created before execution and remains the canonical record of the task’s conditions and outcome.</p><div className="docs-code"><div><span>commitment.json</span><b>schema</b></div><pre>{`{
@@ -83,6 +99,7 @@ export default function DocsPage() {
         <section id="changelog" className="docs-section"><span>07</span><h2>Changelog</h2><p>Protocol and API changes are versioned and additive where possible. Breaking changes are called out explicitly.</p><div className="state-table">{changelog.map(([version, date, copy], index) => <div key={version}><span>0{index + 1}</span><b>{version}</b><p>{copy}</p><i>{date}</i></div>)}</div></section>
         <section id="specifications" className="docs-section"><span>08</span><h2>Protocol specifications</h2><p>Deeper, code-grounded documents for anyone integrating or auditing the protocol. Each one labels what is shipped versus what is still design intent — nothing here is marketing copy.</p><div className="docs-api-links"><a href="https://github.com/Keenetix/keenetix/blob/main/docs/WHITEPAPER.md" target="_blank" rel="noreferrer">Whitepaper v1 ↗</a><a href="https://github.com/Keenetix/keenetix/blob/main/docs/ECONOMIC_MODEL.md" target="_blank" rel="noreferrer">Economic model ↗</a><a href="https://github.com/Keenetix/keenetix/blob/main/docs/THREAT_MODEL.md" target="_blank" rel="noreferrer">Threat model ↗</a><a href="https://github.com/Keenetix/keenetix/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noreferrer">Architecture ↗</a></div></section>
       </div>
+      <DocsToc items={tocItems} />
     </section>
   </main><SiteFooter /></>;
 }
