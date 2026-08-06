@@ -3,12 +3,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { agents } from "@/db/schema";
 import { apiErrorResponse, authenticateApiKey } from "@/lib/api-security";
-import { createCommitment, getDashboardData } from "@/lib/keenetix";
+import { createCommitment, listCommitments } from "@/lib/keenetix";
 export async function GET(request: Request) {
   try {
     const api = await authenticateApiKey(request, "commitments:read");
-    const data = await getDashboardData(api.workspaceId);
-    return NextResponse.json({ data: data.commitments });
+    const url = new URL(request.url);
+    const limit = url.searchParams.has("limit") ? Number(url.searchParams.get("limit")) : undefined;
+    const offset = url.searchParams.has("offset") ? Number(url.searchParams.get("offset")) : undefined;
+    return NextResponse.json({ data: await listCommitments(api.workspaceId, { limit, offset }) });
   } catch (error) { return apiErrorResponse(error); }
 }
 export async function POST(request: Request) {

@@ -64,6 +64,13 @@ paths:
   /api/v1/commitments:
     get:
       summary: List workspace commitments
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
       responses: { '200': { description: Commitment collection } }
     post:
       summary: Create a programmable commitment
@@ -75,6 +82,17 @@ paths:
     get:
       summary: List workspace agents
       responses: { '200': { description: Agent collection } }
+  /api/v1/agents/{id}/reputation:
+    get:
+      summary: Read an agent's reputation record and rolling axis averages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Reputation record }
+        '404': { description: Agent not found in this workspace }
   /api/v1/agents/register:
     post:
       summary: Register a marketplace agent

@@ -60,10 +60,22 @@ async function ensurePublicDemoWorkspace() {
   }
   return workspace;
 }
+/** Paged commitment list. The API surface reads through this rather than the whole dashboard payload. */
+export async function listCommitments(workspaceId: number, options: { limit?: number; offset?: number } = {}) {
+  const limit = Math.min(Math.max(Math.trunc(options.limit ?? 50) || 50, 1), 200);
+  const offset = Math.max(Math.trunc(options.offset ?? 0) || 0, 0);
+  return db.select({ id: commitments.id, reference: commitments.reference, objective: commitments.objective, budget: commitments.budget, asset: commitments.asset, deadline: commitments.deadline, status: commitments.status, assignedAgentName: agents.name, createdAt: commitments.createdAt })
+    .from(commitments).leftJoin(agents, eq(commitments.assignedAgentId, agents.id))
+    .where(eq(commitments.workspaceId, workspaceId)).orderBy(desc(commitments.createdAt)).limit(limit).offset(offset);
+}
+export async function listAgents(workspaceId: number) {
+  await ensureWorkspace(workspaceId);
+  return db.select().from(agents).where(eq(agents.workspaceId, workspaceId)).orderBy(desc(agents.reputation));
+}
 export async function getDashboardData(workspaceId: number) {
   const { workspace } = await ensureWorkspace(workspaceId);
   const [commitmentRows, workerRows, keyRows, settlementRows, eventRows, disputeRows] = await Promise.all([
-    db.select({ id: commitments.id, reference: commitments.reference, objective: commitments.objective, budget: commitments.budget, asset: commitments.asset, deadline: commitments.deadline, status: commitments.status, assignedAgentName: agents.name, createdAt: commitments.createdAt }).from(commitments).leftJoin(agents, eq(commitments.assignedAgentId, agents.id)).where(eq(commitments.workspaceId, workspace.id)).orderBy(desc(commitments.createdAt)),
+    listCommitments(workspace.id, { limit: 200 }),
     db.select().from(agents).where(eq(agents.workspaceId, workspace.id)).orderBy(desc(agents.reputation)),
     db.select({ id: apiKeys.id, name: apiKeys.name, keyPrefix: apiKeys.keyPrefix, scopes: apiKeys.scopes, rateLimitPerMinute: apiKeys.rateLimitPerMinute, lastUsedAt: apiKeys.lastUsedAt, createdAt: apiKeys.createdAt }).from(apiKeys).where(and(eq(apiKeys.workspaceId, workspace.id), isNull(apiKeys.revokedAt))).orderBy(desc(apiKeys.createdAt)),
     db.select({ amount: settlements.amount, status: settlements.status, asset: settlements.asset, transactionHash: settlements.transactionHash, settledAt: settlements.settledAt, createdAt: settlements.createdAt, reference: commitments.reference }).from(settlements).innerJoin(commitments, eq(settlements.commitmentId, commitments.id)).where(eq(commitments.workspaceId, workspace.id)).orderBy(desc(settlements.createdAt)),
@@ -194,15 +206,45 @@ async function confirmSolanaSettlement(workspaceId: number, settlement: Settleme
   }
   return finalizeSettlement(workspaceId, settlement, commitment, { slot: parsed.slot }, String(parsed.slot));
 }
+const DAY = 24 * 60 * 60 * 1000;
+/**
+ * Scores a delivered commitment on the three axes a reputation record tracks. Every axis is
+ * derived from what actually happened, so a record can be re-checked against the commitment and
+ * its verification events rather than taken on trust:
+ *
+ * - reliability — delivered by the deadline, losing 10 points per day late.
+ * - quality     — the share of verification conditions that passed.
+ * - efficiency  — how much of the allotted window went unused. Delivering on the deadline scores
+ *                 50, delivering instantly scores 100, delivering late scores below 50.
+ */
+export function scoreDelivery(commitment: Pick<CommitmentRow, "createdAt" | "deadline">, events: { type: string; status: string }[], settledAt: Date) {
+  const checks = events.filter((event) => event.type !== "commitment_created");
+  const passed = checks.filter((event) => event.status === "passed").length;
+  const quality = checks.length ? (passed / checks.length) * 100 : 100;
+  const due = commitment.deadline.getTime();
+  const done = settledAt.getTime();
+  const span = due - commitment.createdAt.getTime();
+  const reliability = done <= due ? 100 : Math.max(0, 100 - ((done - due) / DAY) * 10);
+  const efficiency = Math.min(100, Math.max(0, 50 + (span > 0 ? (due - done) / span : 0) * 50));
+  return { reliability: reliability.toFixed(2), quality: quality.toFixed(2), efficiency: efficiency.toFixed(2), composite: (reliability + quality + efficiency) / 3 };
+}
 async function finalizeSettlement(workspaceId: number, settlement: SettlementRow, commitment: CommitmentRow, receipt: unknown, blockReference?: string) {
-  await db.update(settlements).set({ status: "settled", receipt, settledAt: new Date() }).where(eq(settlements.id, settlement.id));
-  await db.update(commitments).set({ status: "settled", updatedAt: new Date() }).where(eq(commitments.id, commitment.id));
+  const settledAt = new Date();
+  await db.update(settlements).set({ status: "settled", receipt, settledAt }).where(eq(settlements.id, settlement.id));
+  await db.update(commitments).set({ status: "settled", updatedAt: settledAt }).where(eq(commitments.id, commitment.id));
   if (commitment.assignedAgentId) {
-    const [worker] = await db.select().from(agents).where(eq(agents.id, commitment.assignedAgentId)).limit(1);
+    const [[worker], events] = await Promise.all([
+      db.select().from(agents).where(eq(agents.id, commitment.assignedAgentId)).limit(1),
+      db.select({ type: verificationEvents.type, status: verificationEvents.status }).from(verificationEvents).where(eq(verificationEvents.commitmentId, commitment.id)),
+    ]);
     if (worker) {
-      const nextReputation = Math.min(99.99, Number(worker.reputation) + 0.2).toFixed(2);
+      const score = scoreDelivery(commitment, events, settledAt);
+      // A clean delivery is worth the full 0.20; one that scraped through earns proportionally less.
+      const delta = Math.max(0.02, (score.composite / 100) * 0.2);
+      const nextReputation = Math.min(99.99, Number(worker.reputation) + delta).toFixed(2);
+      // Earnings credit the settled amount, which a split dispute may have cut below the budget.
       await db.update(agents).set({ status: "available", reputation: nextReputation, completedCommitments: worker.completedCommitments + 1, totalEarnings: (Number(worker.totalEarnings) + Number(settlement.amount)).toFixed(2) }).where(eq(agents.id, worker.id));
-      await db.insert(reputationRecords).values({ agentId: worker.id, commitmentId: commitment.id, reliability: "99.00", quality: "98.00", efficiency: "97.00", delta: ".20", note: "Verified on-chain settlement confirmed" });
+      await db.insert(reputationRecords).values({ agentId: worker.id, commitmentId: commitment.id, reliability: score.reliability, quality: score.quality, efficiency: score.efficiency, delta: delta.toFixed(2), note: "Verified on-chain settlement confirmed" });
     }
   }
   await logAudit({ workspaceId, action: "settlement.confirmed", entityType: "settlement", entityId: settlement.id, metadata: { transactionHash: settlement.transactionHash, blockReference } });
@@ -335,6 +377,32 @@ async function applyDisputePenalty(commitment: CommitmentRow, outcome: Exclude<D
     delta: (-penalty).toFixed(2),
     note: outcome === "refund" ? "Dispute resolved as a full refund to the funder" : `Dispute resolved as a partial award of ${award} ${commitment.asset}`,
   });
+}
+/**
+ * The portable record behind an agent's headline score: every delta ever written, what moved it,
+ * and the rolling averages of the three axes. This is the read side of `reputationRecords`, which
+ * settlement and dispute resolution both write to.
+ */
+export async function getAgentReputation(agentId: number, workspaceId: number) {
+  const [agent] = await db.select().from(agents).where(and(eq(agents.id, agentId), eq(agents.workspaceId, workspaceId))).limit(1);
+  if (!agent) throw new Error("Agent not found in this workspace.");
+  const records = await db.select({ id: reputationRecords.id, reliability: reputationRecords.reliability, quality: reputationRecords.quality, efficiency: reputationRecords.efficiency, delta: reputationRecords.delta, note: reputationRecords.note, createdAt: reputationRecords.createdAt, commitmentId: reputationRecords.commitmentId, reference: commitments.reference, objective: commitments.objective })
+    .from(reputationRecords).leftJoin(commitments, eq(reputationRecords.commitmentId, commitments.id))
+    .where(eq(reputationRecords.agentId, agentId)).orderBy(desc(reputationRecords.createdAt)).limit(100);
+  const mean = (pick: (record: typeof records[number]) => string) => records.length ? Number((records.reduce((total, record) => total + Number(pick(record)), 0) / records.length).toFixed(2)) : null;
+  return {
+    agent: { id: agent.id, name: agent.name, role: agent.role, status: agent.status, reputation: agent.reputation, stakeAmount: agent.stakeAmount, stakeAsset: agent.stakeAsset, completedCommitments: agent.completedCommitments, totalEarnings: agent.totalEarnings, capabilities: agent.capabilities, walletAddress: agent.walletAddress },
+    records,
+    summary: {
+      records: records.length,
+      reliability: mean((record) => record.reliability),
+      quality: mean((record) => record.quality),
+      efficiency: mean((record) => record.efficiency),
+      positive: records.filter((record) => Number(record.delta) > 0).length,
+      negative: records.filter((record) => Number(record.delta) < 0).length,
+      netDelta: Number(records.reduce((total, record) => total + Number(record.delta), 0).toFixed(2)),
+    },
+  };
 }
 export async function listDisputes(workspaceId: number) {
   return db.select({ id: disputes.id, commitmentId: disputes.commitmentId, reason: disputes.reason, status: disputes.status, outcome: disputes.outcome, splitBps: disputes.splitBps, resolution: disputes.resolution, previousStatus: disputes.previousStatus, createdAt: disputes.createdAt, resolvedAt: disputes.resolvedAt, reference: commitments.reference, objective: commitments.objective, budget: commitments.budget, asset: commitments.asset, commitmentStatus: commitments.status, agentName: agents.name, raisedByName: users.name })

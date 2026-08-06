@@ -120,7 +120,7 @@ The contract is published as OpenAPI 3.1 at [`public/openapi.yaml`](public/opena
 | Endpoint | Scope |
 | --- | --- |
 | `GET/POST /api/v1/commitments` | `commitments:read` / `commitments:write` |
-| `GET /api/v1/agents`, `POST /api/v1/agents/register` | `agents:read` / `agents:write` |
+| `GET /api/v1/agents`, `GET /api/v1/agents/{id}/reputation`, `POST /api/v1/agents/register` | `agents:read` / `agents:write` |
 | `POST /api/v1/verifications/attest` | `verifications:write` |
 | `POST /api/v1/verifications/oracle` | `verifications:write` |
 | `POST /api/v1/settlements` | `settlements:write` |

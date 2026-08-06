@@ -5,6 +5,11 @@ export type DisputeResolution =
   | { outcome: "release" | "refund"; note: string; splitBps?: never }
   | { outcome: "split"; note: string; splitBps: number };
 type ApiResult<T> = { data: T };
+function query(params: Record<string, number | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) if (value !== undefined) search.set(key, String(value));
+  return search.size ? `?${search}` : "";
+}
 export class Keenetix {
   private readonly baseUrl: string;
   private readonly apiKey: string;
@@ -13,12 +18,14 @@ export class Keenetix {
     this.apiKey = config.apiKey;
   }
   commitments = {
-    list: () => this.request<unknown[]>("/api/v1/commitments"),
+    list: (page: { limit?: number; offset?: number } = {}) => this.request<unknown[]>(`/api/v1/commitments${query(page)}`),
     create: (input: CommitmentInput) => this.request<unknown>("/api/v1/commitments", { method: "POST", body: JSON.stringify(input) }),
   };
   agents = {
     list: () => this.request<unknown[]>("/api/v1/agents"),
     register: (input: AgentInput) => this.request<unknown>("/api/v1/agents/register", { method: "POST", body: JSON.stringify(input) }),
+    /** The agent's portable reputation record: every delta, what moved it, and rolling averages. */
+    reputation: (agentId: number) => this.request<unknown>(`/api/v1/agents/${agentId}/reputation`),
   };
   verifications = {
     attest: (input: { commitmentReference: string; agentId: number; evidence: Record<string, unknown>; signature: string; type?: string }) => this.request<unknown>("/api/v1/verifications/attest", { method: "POST", body: JSON.stringify(input) }),

@@ -15,6 +15,8 @@ type Settlement = { amount: string; status: string; asset: string; transactionHa
 type ProtocolEvent = { id: number; type: string; status: string; createdAt: string; reference: string; agentName: string | null };
 type UserWorkspace = { workspaceId: number; workspaceName: string; organizationName: string; role: string };
 type Dispute = { id: number; commitmentId: number; reason: string; status: string; outcome: string | null; splitBps: number | null; resolution: string | null; previousStatus: string; createdAt: string; resolvedAt: string | null; reference: string; objective: string; budget: string; asset: string; commitmentStatus: string; agentName: string | null; raisedByName: string | null };
+type ReputationRecord = { id: number; reliability: string; quality: string; efficiency: string; delta: string; note: string; createdAt: string; commitmentId: number | null; reference: string | null; objective: string | null };
+type ReputationReport = { agent: { id: number; name: string }; records: ReputationRecord[]; summary: { records: number; reliability: number | null; quality: number | null; efficiency: number | null; positive: number; negative: number; netDelta: number } };
 type Summary = { activeCommitments: number; totalCommitments: number; settledValue: number; escrowedValue: number; escrowedCommitments: number; activeAgents: number; openDisputes: number; disputedValue: number };
 type Workspace = { workspace: { id: number; name: string; slug: string }; identity: { name: string; email: string; role: string; emailVerified: boolean }; workspaces: UserWorkspace[]; commitments: Commitment[]; agents: Agent[]; apiKeys: ApiKey[]; settlements: Settlement[]; events: ProtocolEvent[]; disputes: Dispute[]; summary: Summary };
 type View = "overview" | "commitments" | "agents" | "disputes" | "keys" | "team";
@@ -59,6 +61,7 @@ export function DashboardWorkspace() {
   const [switching, setSwitching] = useState(false);
   const [disputing, setDisputing] = useState<Commitment | null>(null);
   const [resolving, setResolving] = useState<Dispute | null>(null);
+  const [inspecting, setInspecting] = useState<Agent | null>(null);
 
   const loadWorkspace = async () => {
     setLoading(true);
@@ -231,7 +234,7 @@ export function DashboardWorkspace() {
               <div><p>EXECUTION NETWORK</p><h2>Your agents</h2></div>
               <span className="agent-count"><i /> {data.summary.activeAgents} active</span>
             </div>
-            <AgentList agents={data.agents.slice(0, 3)} />
+            <AgentList agents={data.agents.slice(0, 3)} onSelect={setInspecting} />
           </section>
 
           <section className="dash-panel event-panel">
@@ -248,7 +251,7 @@ export function DashboardWorkspace() {
 
       {view === "disputes" && <div className="workspace-body"><section className="dash-panel full-panel"><div className="panel-head"><div><p>ARBITRATION</p><h2>Contested escrow</h2></div><span className="agent-count"><i /> {formatMoney(String(data.summary.disputedValue), "USDC")} frozen</span></div><DisputeTable disputes={data.disputes} canResolve={canResolve} onResolve={setResolving} /></section></div>}
 
-      {view === "agents" && <div className="workspace-body"><section className="dash-panel full-panel"><div className="panel-head"><div><p>EXECUTION NETWORK</p><h2>Agents in this workspace</h2></div><span className="agent-count"><i /> {data.summary.activeAgents} active</span></div><AgentList agents={data.agents} /></section></div>}
+      {view === "agents" && <div className="workspace-body"><section className="dash-panel full-panel"><div className="panel-head"><div><p>EXECUTION NETWORK</p><h2>Agents in this workspace</h2></div><span className="agent-count"><i /> {data.summary.activeAgents} active</span></div><AgentList agents={data.agents} onSelect={setInspecting} /></section></div>}
 
       {view === "team" && <div className="workspace-body"><WorkspaceTeam role={data.identity.role} /></div>}
 
@@ -258,6 +261,7 @@ export function DashboardWorkspace() {
       {formOpen && <CommitmentForm agents={data.agents} onClose={() => setFormOpen(false)} onCreated={async () => { setFormOpen(false); setView("commitments"); await loadWorkspace(); }} />}
       {disputing && <DisputeForm commitment={disputing} onClose={() => setDisputing(null)} onRaised={async () => { setDisputing(null); setView("disputes"); await loadWorkspace(); }} />}
       {resolving && <ResolveForm dispute={resolving} onClose={() => setResolving(null)} onResolved={async () => { setResolving(null); await loadWorkspace(); }} />}
+      {inspecting && <ReputationPanel agent={inspecting} onClose={() => setInspecting(null)} />}
     </main>
   </div>;
 }
@@ -295,9 +299,59 @@ function EscrowChart({ commitments, settlements }: { commitments: Commitment[]; 
   </>;
 }
 
-function AgentList({ agents }: { agents: Agent[] }) {
+function AgentList({ agents, onSelect }: { agents: Agent[]; onSelect?: (agent: Agent) => void }) {
   if (!agents.length) return <p className="table-empty">No agents in this workspace yet.</p>;
-  return <div className="agent-list">{agents.map((agent) => <article key={agent.id}><span className="agent-avatar">{initials(agent.name)}</span><div><b>{agent.name}</b><small>{agent.role}</small></div><span className="agent-rep">{agent.reputation}% <small>reputation</small></span><span className={`agent-status ${agent.status}`}>{agent.status}</span></article>)}</div>;
+  return <div className="agent-list">{agents.map((agent) => {
+    const body = <><span className="agent-avatar">{initials(agent.name)}</span><div><b>{agent.name}</b><small>{agent.role}</small></div><span className="agent-rep">{agent.reputation}% <small>reputation</small></span><span className={`agent-status ${agent.status}`}>{agent.status}</span></>;
+    return onSelect
+      ? <button className="agent-row" key={agent.id} onClick={() => onSelect(agent)}>{body}</button>
+      : <article key={agent.id}>{body}</article>;
+  })}</div>;
+}
+
+function ReputationPanel({ agent, onClose }: { agent: Agent; onClose: () => void }) {
+  const [data, setData] = useState<ReputationReport | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const response = await fetch(`/api/agents/${agent.id}/reputation`, { cache: "no-store" });
+      const result = await response.json() as ReputationReport & { error?: string };
+      if (!live) return;
+      if (response.ok) setData(result); else setError(result.error ?? "Unable to load reputation.");
+    })();
+    return () => { live = false; };
+  }, [agent.id]);
+  const axes: { key: keyof ReputationReport["summary"]; label: string }[] = [
+    { key: "reliability", label: "RELIABILITY" },
+    { key: "quality", label: "QUALITY" },
+    { key: "efficiency", label: "EFFICIENCY" },
+  ];
+  return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><section className="commitment-modal reputation-modal" role="dialog" aria-modal="true" aria-labelledby="reputation-title" onMouseDown={(event) => event.stopPropagation()}>
+    <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
+    <p className="section-label">{agent.role}</p>
+    <h2 id="reputation-title">{agent.name}.</h2>
+    {error && <p className="form-error">{error}</p>}
+    {!data && !error && <p className="reputation-loading">Loading reputation record…</p>}
+    {data && <>
+      <div className="reputation-axes">
+        {axes.map((axis) => {
+          const value = data.summary[axis.key] as number | null;
+          return <div key={axis.key}><span>{axis.label}</span><b>{value === null ? "—" : `${value}%`}</b><div className="axis-meter"><i style={{ width: `${value ?? 0}%` }} /></div></div>;
+        })}
+      </div>
+      <p className="reputation-meta">Headline {agent.reputation}% · {data.summary.records} {data.summary.records === 1 ? "record" : "records"} · {data.summary.positive} up, {data.summary.negative} down · net {data.summary.netDelta > 0 ? "+" : ""}{data.summary.netDelta}</p>
+      <div className="reputation-log">
+        {data.records.length
+          ? data.records.map((record) => <article key={record.id}>
+            <em className={Number(record.delta) < 0 ? "is-down" : "is-up"}>{Number(record.delta) > 0 ? "+" : ""}{record.delta}</em>
+            <div><b>{record.note}</b><small>{[record.reference, `R ${record.reliability}`, `Q ${record.quality}`, `E ${record.efficiency}`].filter(Boolean).join(" · ")}</small></div>
+            <time>{formatDate(record.createdAt)}</time>
+          </article>)
+          : <p className="table-empty">No reputation records yet. Settling or disputing a commitment writes one.</p>}
+      </div>
+    </>}
+  </section></div>;
 }
 
 function CommitmentTable({ commitments, onDispute }: { commitments: Commitment[]; onDispute: (commitment: Commitment) => void }) {
