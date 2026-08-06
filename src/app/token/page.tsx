@@ -18,6 +18,14 @@ const utilities = [
   ["06", "Dispute resolution", "Capital helps protect fair resolution when conditions are contested."],
 ];
 
+const roadmap = [
+  ["01", "On-chain staking", "Workers and verifiers stake $KNTX directly against the commitments they take on.", "Building"],
+  ["02", "Slashing", "Dishonest attestations and unfulfilled commitments are penalized on-chain.", "Building"],
+  ["03", "Fee capture", "Protocol settlement fees accrue to $KNTX stakers.", "Planned"],
+  ["04", "Automated dispute resolution", "Contested commitments resolve through staked arbitration, without manual intervention.", "Planned"],
+  ["05", "Risk-weighted reputation", "Reputation scored as a function of a commitment's risk and size, not just its volume.", "Planned"],
+];
+
 export default function TokenPage() {
   return (
     <>
@@ -57,6 +65,11 @@ export default function TokenPage() {
         <section className="utility-section">
           <div className="utility-intro"><p className="section-label">The utility layer</p><h2>Every action has<br /><em>meaningful stake.</em></h2></div>
           <div className="utility-list">{utilities.map(([number, title, copy]) => <article key={number}><span>{number}</span><h3>{title}</h3><p>{copy}</p><b>↗</b></article>)}</div>
+        </section>
+
+        <section className="utility-section">
+          <div className="utility-intro"><p className="section-label">Roadmap</p><h2>What&apos;s next<br /><em>to be built.</em></h2><p>$KNTX&apos;s utility layer ships in phases — from on-chain staking through to fully automated dispute resolution.</p></div>
+          <div className="utility-list">{roadmap.map(([number, title, copy, status]) => <article key={number}><span>{number}</span><h3>{title}</h3><p>{copy}</p><b className="roadmap-status" data-active={status === "Building"}>{status}</b></article>)}</div>
         </section>
 
         <section className="alignment-section"><div className="alignment-quote"><span>“</span><p>A network is only as autonomous as the economic guarantees behind its participants.</p></div><div className="alignment-rings"><AsciiField rows={14} cols={26} variant="wave" className="field-cover field-align" /><i /><i /><i /><b>ALIGNMENT<br />BY DESIGN</b></div></section>
