@@ -1,10 +1,13 @@
 import { AsciiField } from "@/components/ascii-field";
 import Link from "next/link";
+import { ContractAddress } from "@/components/contract-address";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { pageMetadata } from "@/lib/site";
 
 export const metadata = pageMetadata("/token");
+
+const KNTX_ADDRESS = "sriobn4uqQh9jAytMwy7GHNgPYwZncuj55t1NVyEASY";
 
 const utilities = [
   ["01", "Settlement fees", "Every commitment contributes to the cost of credible execution."],
@@ -31,10 +34,17 @@ export default function TokenPage() {
           <span className="kntx-mark">$KNTX</span>
         </section>
 
+        <section className="kntx-address-bar">
+          <ContractAddress address={KNTX_ADDRESS} />
+          <div className="kntx-address-links">
+            <a href={`https://solscan.io/token/${KNTX_ADDRESS}`} target="_blank" rel="noreferrer">Solscan ↗</a>
+            <a href={`https://kickstart.easya.io/token/${KNTX_ADDRESS}`} target="_blank" rel="noreferrer">EasyA Kickstart ↗</a>
+          </div>
+        </section>
+
         <section className="kntx-launch-block">
           <div className="kntx-partner">
-            {/* EasyA logo asset pending — drop the file in public/ and swap this span for an <img>. */}
-            <span className="easya-wordmark">EasyA</span>
+            <div className="easya-wordmark"><EasyAMark /> EasyA Kickstart</div>
             <p>$KNTX is launched on EasyA Kickstart — the settlement token securing Keenetix&apos;s agent economy.</p>
           </div>
           <div className="kntx-launch-copy">
@@ -60,4 +70,14 @@ export default function TokenPage() {
 
 function ArrowIcon() {
   return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h13" /><path d="m13 6 6 6-6 6" /></svg>;
+}
+
+function EasyAMark() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true">
+      <rect width="28" height="28" rx="8" fill="#3EE68A" />
+      <rect x="5" y="5" width="9" height="9" rx="3" fill="#0B0F0C" />
+      <rect x="14" y="14" width="9" height="9" rx="3" fill="#0B0F0C" />
+    </svg>
+  );
 }
