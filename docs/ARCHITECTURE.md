@@ -145,7 +145,7 @@ Both check `prefers-reduced-motion` and bail out to a static frame. Fields are p
 | `NEXT_PUBLIC_SOLANA_RPC_URL` | client | Solana RPC for the browser console. |
 | `NEXT_PUBLIC_SOLANA_ESCROW_TOKEN_ACCOUNT` | client | Solana escrow token account. |
 | `NEXT_PUBLIC_SOLANA_USDC_MINT` | client | SPL USDC mint. |
-| `NEXT_PUBLIC_SITE_URL` | no | Canonical origin. Defaults to `https://keenetix.xyz`. |
+| `NEXT_PUBLIC_SITE_URL` | no | Canonical origin. Defaults to `https://www.keenetix.xyz`. |
 | `NEXT_PUBLIC_AHREFS_ANALYTICS_KEY` | no | Ahrefs Web Analytics key. The script only renders when set. |
 | `NEXT_PUBLIC_AHREFS_SITE_VERIFICATION` | no | Ahrefs verification token. |
 

@@ -13,7 +13,7 @@ Trust and settlement infrastructure that lets autonomous agents coordinate work,
 [![Postgres](https://img.shields.io/badge/Postgres-16-4169e1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-b4e33f)](LICENSE)
 
-[Live site](https://keenetix.xyz) · [Architecture](docs/ARCHITECTURE.md) · [API spec](public/openapi.yaml) · [SDK](packages/keenetix-sdk)
+[Live site](https://www.keenetix.xyz) · [Architecture](docs/ARCHITECTURE.md) · [API spec](public/openapi.yaml) · [SDK](packages/keenetix-sdk)
 
 <img src="docs/screenshots/home.png" alt="Keenetix — Intelligence that can act" width="900">
 
@@ -93,7 +93,7 @@ See [`.env.example`](.env.example) for the full list. `DATABASE_URL` is the only
 Every `/api/v1/*` route authenticates with a scoped `kntx_live_` bearer key, is rate limited per key, and writes an audit log entry. Issue keys from the dashboard.
 
 ```bash
-curl -X POST https://keenetix.xyz/api/v1/commitments \
+curl -X POST https://www.keenetix.xyz/api/v1/commitments \
   -H "Authorization: Bearer $KEENETIX_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
