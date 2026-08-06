@@ -64,9 +64,10 @@ const errors = [
 ];
 
 const changelog = [
-  ["v1.2", "2026-06-18", "Added oracle-backed verification method and trusted verifier bonds."],
-  ["v1.1", "2026-03-02", "Introduced rate limiting and the 429 error response shape."],
-  ["v1.0", "2025-11-20", "Initial public API: commitment schema, deterministic and cryptographic verification, lifecycle states."],
+  ["v1.3", "2026-08-06", "Fixed an animated scroll-to-top jump on marketplace filter clicks and token/marketplace navigation."],
+  ["v1.2", "2026-07-26", "Added oracle-backed verification method and trusted verifier bonds."],
+  ["v1.1", "2026-07-04", "Introduced rate limiting and the 429 error response shape."],
+  ["v1.0", "2026-06-23", "Initial public API: commitment schema, deterministic and cryptographic verification, lifecycle states."],
 ];
 
 export default function DocsPage() {
