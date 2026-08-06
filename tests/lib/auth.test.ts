@@ -14,7 +14,7 @@ describe("auth flow", () => {
   it("signs up a new user and starts an authenticated session", async () => {
     const email = uniqueEmail("signup");
     registry.trackEmail(email);
-    const { user, organization } = await signUp({ name: "Ada Lovelace", email, password: "password123", organization: "Ada Co" });
+    const { user, organization } = await signUp({ name: "Ada Lovelace", email, password: "password123", organization: "Ada Co", origin: "https://test.local" });
     registry.trackOrganization(organization.id);
     const identity = await getCurrentIdentity();
     expect(identity).not.toBeNull();
@@ -25,14 +25,14 @@ describe("auth flow", () => {
   it("rejects duplicate email sign-up", async () => {
     const email = uniqueEmail("dup");
     registry.trackEmail(email);
-    const first = await signUp({ name: "First", email, password: "password123", organization: "First Co" });
+    const first = await signUp({ name: "First", email, password: "password123", organization: "First Co", origin: "https://test.local" });
     registry.trackOrganization(first.organization.id);
-    await expect(signUp({ name: "Second", email, password: "password123", organization: "Second Co" })).rejects.toThrow(/already exists/);
+    await expect(signUp({ name: "Second", email, password: "password123", organization: "Second Co", origin: "https://test.local" })).rejects.toThrow(/already exists/);
   });
   it("signs in with correct credentials and rejects the wrong password", async () => {
     const email = uniqueEmail("signin");
     registry.trackEmail(email);
-    const { organization } = await signUp({ name: "Grace Hopper", email, password: "correct-password", organization: "Hopper Co" });
+    const { organization } = await signUp({ name: "Grace Hopper", email, password: "correct-password", organization: "Hopper Co", origin: "https://test.local" });
     registry.trackOrganization(organization.id);
     fakeCookieStore.clear();
     await signIn({ email, password: "correct-password" });
@@ -44,7 +44,7 @@ describe("auth flow", () => {
   it("clears the session on sign out", async () => {
     const email = uniqueEmail("signout");
     registry.trackEmail(email);
-    const { organization } = await signUp({ name: "Alan Turing", email, password: "password123", organization: "Turing Co" });
+    const { organization } = await signUp({ name: "Alan Turing", email, password: "password123", organization: "Turing Co", origin: "https://test.local" });
     registry.trackOrganization(organization.id);
     expect(await getCurrentIdentity()).not.toBeNull();
     await signOut();

@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { signInWithOAuth } from "@/lib/auth";
-import { appOrigin, oauthCookieNames, resolveGoogleProfile } from "@/lib/oauth";
+import { oauthCookieNames, resolveGoogleProfile } from "@/lib/oauth";
+import { appOrigin } from "@/lib/url";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const origin = appOrigin(request);

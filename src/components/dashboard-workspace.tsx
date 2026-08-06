@@ -1,16 +1,21 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { csrfFetch } from "@/lib/csrf-fetch";
 import { WorkspaceTeam } from "@/components/workspace-team";
 
 type Agent = { id: number; name: string; role: string; status: string; reputation: string; completedCommitments: number };
 type Commitment = { id: number; reference: string; objective: string; budget: string; asset: string; deadline: string; status: string; assignedAgentName: string | null; createdAt: string };
 type ApiKey = { id: number; name: string; keyPrefix: string; scopes: string[]; rateLimitPerMinute: number; lastUsedAt: string | null; createdAt: string };
-type Workspace = { workspace: { id: number; name: string; slug: string }; identity: { name: string; email: string; role: string }; commitments: Commitment[]; agents: Agent[]; apiKeys: ApiKey[]; summary: { activeCommitments: number; totalCommitments: number; settledValue: number; activeAgents: number } };
+type UserWorkspace = { workspaceId: number; workspaceName: string; organizationName: string; role: string };
+type Workspace = { workspace: { id: number; name: string; slug: string }; identity: { name: string; email: string; role: string; emailVerified: boolean }; workspaces: UserWorkspace[]; commitments: Commitment[]; agents: Agent[]; apiKeys: ApiKey[]; summary: { activeCommitments: number; totalCommitments: number; settledValue: number; activeAgents: number } };
 
 const statusLabels: Record<string, string> = { draft: "Draft", funded: "Funded", executing: "Executing", verified: "Verified", settled: "Settled", disputed: "Disputed" };
 
 export function DashboardWorkspace() {
+  const router = useRouter();
+  const params = useSearchParams();
   const [data, setData] = useState<Workspace | null>(null);
   const [view, setView] = useState<"overview" | "commitments" | "keys" | "team">("overview");
   const [formOpen, setFormOpen] = useState(false);
@@ -18,6 +23,9 @@ export function DashboardWorkspace() {
   const [error, setError] = useState("");
   const [newKey, setNewKey] = useState("");
   const [keyLoading, setKeyLoading] = useState(false);
+  const [verifyNotice, setVerifyNotice] = useState(params.get("verified") ? "Your email is verified." : params.get("verifyError") ?? "");
+  const [resending, setResending] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   const loadWorkspace = async () => {
     setLoading(true);
@@ -32,19 +40,19 @@ export function DashboardWorkspace() {
 
   const revokeKey = async (keyId: number) => {
     setError("");
-    const response = await fetch(`/api/api-keys/${keyId}`, { method: "DELETE" });
+    const response = await csrfFetch(`/api/api-keys/${keyId}`, { method: "DELETE" });
     const result = await response.json().catch(() => null) as { error?: string } | null;
     if (!response.ok) setError(result?.error ?? "Unable to revoke API key.");
     else await loadWorkspace();
   };
   const signOut = async () => {
-    await fetch("/api/auth/sign-out", { method: "POST" });
+    await csrfFetch("/api/auth/sign-out", { method: "POST" });
     window.location.assign("/");
   };
   const createKey = async () => {
     setKeyLoading(true);
     setError("");
-    const response = await fetch("/api/api-keys", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Dashboard development key" }) });
+    const response = await csrfFetch("/api/api-keys", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Dashboard development key" }) });
     const result = await response.json() as { rawKey?: string; error?: string };
     if (response.ok && result.rawKey) {
       setNewKey(result.rawKey);
@@ -52,12 +60,26 @@ export function DashboardWorkspace() {
     } else setError(result.error ?? "Unable to create an API key.");
     setKeyLoading(false);
   };
+  const resendVerification = async () => {
+    setResending(true);
+    const response = await csrfFetch("/api/auth/resend-verification", { method: "POST" });
+    setResending(false);
+    setVerifyNotice(response.ok ? "Verification email sent. Check your inbox." : "Unable to send verification email.");
+  };
+  const switchWorkspace = async (workspaceId: number) => {
+    setSwitching(true);
+    const response = await csrfFetch("/api/workspace/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspaceId }) });
+    if (response.ok) { router.refresh(); await loadWorkspace(); }
+    setSwitching(false);
+  };
 
   if (loading) return <div className="dashboard-loading"><span /><p>Loading your Keenetix workspace…</p></div>;
   if (!data) return <div className="dashboard-loading"><p>{error || "Unable to load dashboard."}</p><button className="button button-coral" onClick={() => void loadWorkspace()}>Try again</button></div>;
 
   return <section className="dashboard-shell">
-    <div className="dashboard-top"><div><p className="section-label">Developer workspace · {data.identity.role}</p><h1>Welcome back,<br /><em>{data.identity.name}.</em></h1></div><div className="dashboard-top-actions"><button className="sign-out-button" onClick={() => void signOut()}>Sign out</button><button className="button button-coral" onClick={() => setFormOpen(true)}>Create commitment <ArrowIcon /></button></div></div>
+    <div className="dashboard-top"><div><p className="section-label">Developer workspace · {data.identity.role}</p><h1>Welcome back,<br /><em>{data.identity.name}.</em></h1></div><div className="dashboard-top-actions">{data.workspaces.length > 1 && <select className="workspace-switcher" value={data.workspace.id} disabled={switching} onChange={(event) => void switchWorkspace(Number(event.target.value))}>{data.workspaces.map((item) => <option key={item.workspaceId} value={item.workspaceId}>{item.organizationName} / {item.workspaceName}</option>)}</select>}<button className="sign-out-button" onClick={() => void signOut()}>Sign out</button><button className="button button-coral" onClick={() => setFormOpen(true)}>Create commitment <ArrowIcon /></button></div></div>
+    {!data.identity.emailVerified && <p className="verify-banner">Verify your email to secure this account. <button onClick={() => void resendVerification()} disabled={resending}>{resending ? "Sending…" : "Resend verification email"}</button></p>}
+    {verifyNotice && <p className="verify-banner verify-banner-ok">{verifyNotice}</p>}
     <div className="dashboard-tabs"><button className={view === "overview" ? "active" : ""} onClick={() => setView("overview")}>Overview</button><button className={view === "commitments" ? "active" : ""} onClick={() => setView("commitments")}>Commitments <span>{data.summary.totalCommitments}</span></button><button className={view === "keys" ? "active" : ""} onClick={() => setView("keys")}>API keys</button><button className={view === "team" ? "active" : ""} onClick={() => setView("team")}>Team</button></div>
 
     {view === "overview" && <>
@@ -90,7 +112,7 @@ function CommitmentForm({ agents, onClose, onCreated }: { agents: Agent[]; onClo
     event.preventDefault();
     setSaving(true); setError("");
     const form = new FormData(event.currentTarget);
-    const response = await fetch("/api/commitments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ objective: form.get("objective"), budget: Number(form.get("budget")), deadline: form.get("deadline"), agentId: form.get("agentId") ? Number(form.get("agentId")) : undefined, verificationRules: ["CI checks pass", "Security scan clear", "Reviewer attestation"] }) });
+    const response = await csrfFetch("/api/commitments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ objective: form.get("objective"), budget: Number(form.get("budget")), deadline: form.get("deadline"), agentId: form.get("agentId") ? Number(form.get("agentId")) : undefined, verificationRules: ["CI checks pass", "Security scan clear", "Reviewer attestation"] }) });
     const result = await response.json() as { error?: string };
     setSaving(false);
     if (response.ok) await onCreated(); else setError(result.error ?? "Unable to create commitment.");

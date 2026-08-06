@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
-import { appOrigin, buildGithubAuthUrl, oauthCookieNames } from "@/lib/oauth";
+import { buildGithubAuthUrl, oauthCookieNames } from "@/lib/oauth";
+import { appOrigin } from "@/lib/url";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const origin = appOrigin(request);

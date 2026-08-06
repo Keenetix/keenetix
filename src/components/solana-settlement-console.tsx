@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AsciiField } from "@/components/ascii-field";
+import { csrfFetch } from "@/lib/csrf-fetch";
 type Commitment = { id: number; reference: string; objective: string; budget: string; asset: string; status: string };
 type PhantomProvider = {
   isPhantom?: boolean;
@@ -57,7 +58,7 @@ export function SolanaSettlementConsole() {
       transaction.recentBlockhash = blockhash;
       const { signature: sig } = await window.solana.signAndSendTransaction(transaction);
       setSignature(sig);
-      const response = await fetch("/api/settlements/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ commitmentId: commitment.id, transactionHash: sig, chain: "solana", escrowAddress: escrowTokenAccount }) });
+      const response = await csrfFetch("/api/settlements/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ commitmentId: commitment.id, transactionHash: sig, chain: "solana", escrowAddress: escrowTokenAccount }) });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error ?? "Unable to record settlement.");
       setStatus(`Transaction ${sig.slice(0, 10)}… submitted. Confirm it after the receipt is available.`);
@@ -68,7 +69,7 @@ export function SolanaSettlementConsole() {
   const confirm = async () => {
     if (!signature) { setError("Submit a wallet transaction before checking a receipt."); return; }
     setStatus("Checking the configured RPC for a receipt…"); setError("");
-    const response = await fetch("/api/settlements/confirm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionHash: signature }) });
+    const response = await csrfFetch("/api/settlements/confirm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionHash: signature }) });
     const data = await response.json() as { error?: string; status?: string };
     if (!response.ok) setError(data.error ?? "Receipt is not available yet."); else setStatus(data.status === "settled" ? "Receipt confirmed. Value settled and worker reputation updated." : "Receipt is still pending.");
   };

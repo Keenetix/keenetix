@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AsciiField } from "@/components/ascii-field";
+import { csrfFetch } from "@/lib/csrf-fetch";
 type Commitment = { id: number; reference: string; objective: string; budget: string; asset: string; status: string };
 type EthereumProvider = { request: (request: { method: string; params?: unknown[] }) => Promise<unknown> };
 declare global { interface Window { ethereum?: EthereumProvider } }
@@ -40,7 +41,7 @@ export function WalletSettlementConsole() {
       await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: `0x${configuredChainId.toString(16)}` }] });
       const hash = await window.ethereum.request({ method: "eth_sendTransaction", params: [{ from: account, to: usdcAddress, data: encodeUsdcTransfer(escrowAddress, commitment.budget) }] }) as string;
       setTransactionHash(hash);
-      const response = await fetch("/api/settlements/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ commitmentId: commitment.id, transactionHash: hash, chainId: configuredChainId, escrowAddress }) });
+      const response = await csrfFetch("/api/settlements/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ commitmentId: commitment.id, transactionHash: hash, chainId: configuredChainId, escrowAddress }) });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error ?? "Unable to record settlement.");
       setStatus(`Transaction ${hash.slice(0, 10)}… submitted. Confirm it after the testnet receipt is available.`);
@@ -52,7 +53,7 @@ export function WalletSettlementConsole() {
     const commitment = commitments.find((item) => item.id === Number(selectedId));
     if (!commitment || !transactionHash) { setError("Submit a wallet transaction before checking a receipt."); return; }
     setStatus("Checking the configured RPC for a receipt…"); setError("");
-    const response = await fetch("/api/settlements/confirm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionHash }) });
+    const response = await csrfFetch("/api/settlements/confirm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transactionHash }) });
     const data = await response.json() as { error?: string; status?: string };
     if (!response.ok) setError(data.error ?? "Receipt is not available yet."); else setStatus(data.status === "settled" ? "Receipt confirmed. Value settled and worker reputation updated." : "Receipt is still pending.");
   };

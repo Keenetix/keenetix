@@ -4,6 +4,7 @@ export const users = pgTable("users", {
   name: varchar("name", { length: 160 }).notNull(),
   email: varchar("email", { length: 255 }).notNull(),
   passwordHash: varchar("password_hash", { length: 255 }),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("users_email_unique").on(table.email)]);
 export const oauthAccounts = pgTable("oauth_accounts", {
@@ -188,6 +189,32 @@ export const disputes = pgTable("disputes", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
+export const emailVerifications = pgTable("email_verifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: varchar("token_hash", { length: 128 }).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("email_verifications_token_hash_unique").on(table.tokenHash)]);
+export const passwordResets = pgTable("password_resets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: varchar("token_hash", { length: 128 }).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("password_resets_token_hash_unique").on(table.tokenHash)]);
+export const invites = pgTable("invites", {
+  id: serial("id").primaryKey(),
+  workspaceId: integer("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  email: varchar("email", { length: 255 }).notNull(),
+  role: varchar("role", { length: 32 }).notNull().default("member"),
+  tokenHash: varchar("token_hash", { length: 128 }).notNull(),
+  invitedByUserId: integer("invited_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("invites_token_hash_unique").on(table.tokenHash)]);
 export const accessRequests = pgTable("access_requests", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 160 }).notNull(),

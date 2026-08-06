@@ -39,6 +39,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           {isSignUp && <label>Organization<input name="organization" required placeholder="Acme Inc." /></label>}
           <label>Email<input name="email" type="email" required placeholder="you@company.com" /></label>
           <label>Password<input name="password" type="password" required minLength={8} placeholder="••••••••" /></label>
+          {!isSignUp && <Link className="forgot-password-link" href="/forgot-password">Forgot password?</Link>}
           {error && <p className="form-error">{error}</p>}
           <button className="button button-coral" disabled={loading}>{loading ? "Please wait…" : isSignUp ? "Create workspace" : "Sign in"}</button>
         </form>
