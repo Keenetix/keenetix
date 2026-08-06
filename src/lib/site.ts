@@ -84,6 +84,13 @@ export const ROUTES: RouteMeta[] = [
     changeFrequency: "monthly",
   },
   {
+    path: "/privacy",
+    title: "Privacy Policy",
+    description: "What Keenetix collects when you use the website, dashboard, API, and SDK, why we collect it, and the choices you have.",
+    priority: 0.3,
+    changeFrequency: "monthly",
+  },
+  {
     path: "/security",
     title: "Security — Reporting and Safeguards",
     description: "How Keenetix stores credentials, isolates workspaces, verifies proof, safeguards settlement, and handles private vulnerability disclosure.",

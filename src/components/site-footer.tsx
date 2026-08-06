@@ -20,6 +20,7 @@ const buildLinks = [
 
 const legalLinks = [
   { href: "/terms", label: "Terms & conditions" },
+  { href: "/privacy", label: "Privacy" },
   { href: "/security", label: "Security" },
 ];
 
