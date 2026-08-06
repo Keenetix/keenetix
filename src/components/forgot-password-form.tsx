@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { AuthAside } from "@/components/auth-aside";
 import { KeenetixLogo } from "@/components/keenetix-logo";
-import { WordTapestry } from "@/components/word-tapestry";
 import { SITE } from "@/lib/site";
 export function ForgotPasswordForm() {
   const [loading, setLoading] = useState(false);
@@ -30,13 +30,7 @@ export function ForgotPasswordForm() {
         )}
         <p className="auth-switch">Remembered it? <Link href="/sign-in">Sign in</Link></p>
       </div>
-      <div className="auth-aside">
-        <WordTapestry word="keenetix" rows={44} />
-        <div className="tapestry-overlay">
-          <p className="tapestry-caption">KEENETIX / <span>a kinetic tapestry of the network</span></p>
-          <span className="tapestry-word">keenetix</span>
-        </div>
-      </div>
+      <AuthAside />
     </div>
   );
 }

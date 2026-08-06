@@ -2,8 +2,8 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AuthAside } from "@/components/auth-aside";
 import { KeenetixLogo } from "@/components/keenetix-logo";
-import { WordTapestry } from "@/components/word-tapestry";
 import { SITE } from "@/lib/site";
 export function ResetPasswordForm() {
   const router = useRouter();
@@ -36,13 +36,7 @@ export function ResetPasswordForm() {
         ) : <p className="form-error">This link is missing its reset token. Request a new one.</p>}
         <p className="auth-switch">Need a new link? <Link href="/forgot-password">Request one</Link></p>
       </div>
-      <div className="auth-aside">
-        <WordTapestry word="keenetix" rows={44} />
-        <div className="tapestry-overlay">
-          <p className="tapestry-caption">KEENETIX / <span>a kinetic tapestry of the network</span></p>
-          <span className="tapestry-word">keenetix</span>
-        </div>
-      </div>
+      <AuthAside />
     </div>
   );
 }

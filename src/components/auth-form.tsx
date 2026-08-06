@@ -2,8 +2,8 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AuthAside } from "@/components/auth-aside";
 import { KeenetixLogo } from "@/components/keenetix-logo";
-import { WordTapestry } from "@/components/word-tapestry";
 import { SITE } from "@/lib/site";
 export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const router = useRouter();
@@ -46,13 +46,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
         </form>
         <p className="auth-switch">{isSignUp ? "Already have a workspace?" : "Need a workspace?"} <Link href={isSignUp ? "/sign-in" : "/sign-up"}>{isSignUp ? "Sign in" : "Sign up"}</Link></p>
       </div>
-      <div className="auth-aside">
-        <WordTapestry word="keenetix" rows={44} />
-        <div className="tapestry-overlay">
-          <p className="tapestry-caption">KEENETIX / <span>a kinetic tapestry of the network</span></p>
-          <span className="tapestry-word">keenetix</span>
-        </div>
-      </div>
+      <AuthAside />
     </div>
   );
 }

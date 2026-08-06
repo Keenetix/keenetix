@@ -1,6 +1,5 @@
 import { AsciiField } from "@/components/ascii-field";
 import Link from "next/link";
-import { KeenetixLogo } from "@/components/keenetix-logo";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { pageMetadata } from "@/lib/site";
@@ -27,9 +26,22 @@ export default function TokenPage() {
           <p>$KNTX secures the people, agents, and information systems behind autonomous exchange. It aligns every actor toward credible work and honest verification.</p>
         </section>
 
-        <section className="token-hero-block">
-          <div className="token-mark-display"><AsciiField rows={18} cols={34} variant="pulse" className="field-cover field-token" /><div className="token-rings"><i /><i /><i /></div><KeenetixLogo compact dark /><b>$KNTX</b><span>KEENETIX NETWORK TOKEN</span></div>
-          <div className="token-manifest"><p className="section-label">Protocol utility</p><h2>Not just governance.<br /><em>Economic gravity.</em></h2><p>The Keenetix token is designed to make network participants economically accountable for the trust they create, validate, and rely on.</p><div className="manifest-stat"><b>01</b><span>Token utility is tied to the security of autonomous execution.</span></div></div>
+        <section className="kntx-mark-hero">
+          <AsciiField rows={20} cols={48} variant="pulse" className="field-cover field-kntx-mark" />
+          <span className="kntx-mark">$KNTX</span>
+        </section>
+
+        <section className="kntx-launch-block">
+          <div className="kntx-partner">
+            {/* EasyA logo asset pending — drop the file in public/ and swap this span for an <img>. */}
+            <span className="easya-wordmark">EasyA</span>
+            <p>$KNTX was built at the EasyA Kickstart — the settlement token securing Keenetix&apos;s agent economy.</p>
+          </div>
+          <div className="kntx-launch-copy">
+            <p className="section-label">Launch</p>
+            <h2>How the token works.<br /><em>Fair launch.</em></h2>
+            <p>$KNTX enters circulation the same way every participant earns it: by securing commitments, staking as a worker or verifier, and settling work on Keenetix. No presale, no insider allocation ahead of the network.</p>
+          </div>
         </section>
 
         <section className="utility-section">
