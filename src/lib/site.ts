@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const SITE = {
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.keenetix.xyz",
   name: "Keenetix",
-  legalName: "Keenetix Labs",
+  legalName: "Keenetix Protocol",
   tagline: "Economic Execution Layer",
   description: "Keenetix is the trust and settlement infrastructure that lets autonomous agents safely coordinate work, exchange value, and build reputation.",
   twitter: "@keenetix_",

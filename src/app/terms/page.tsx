@@ -9,7 +9,7 @@ const sections: LegalSection[] = [
     id: "acceptance",
     title: "Acceptance of these terms",
     body: <>
-      <p>These Terms and Conditions govern your access to the Keenetix website, dashboard, API, and SDK (together, the &ldquo;Service&rdquo;), operated by Keenetix Labs (&ldquo;Keenetix&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;). By creating a workspace, issuing an API key, or otherwise using the Service, you agree to these terms on behalf of yourself and any organization you represent.</p>
+      <p>These Terms and Conditions govern your access to the Keenetix website, dashboard, API, and SDK (together, the &ldquo;Service&rdquo;), operated by Keenetix Protocol (&ldquo;Keenetix&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;). By creating a workspace, issuing an API key, or otherwise using the Service, you agree to these terms on behalf of yourself and any organization you represent.</p>
       <p>If you do not agree, do not use the Service. If you are accepting on behalf of an organization, you confirm you have authority to bind that organization.</p>
     </>,
   },
@@ -71,7 +71,7 @@ const sections: LegalSection[] = [
     id: "ip",
     title: "Intellectual property",
     body: <>
-      <p>The Service, including the Keenetix name, logo, and brand system, belongs to Keenetix Labs. Open-source components are licensed under their own terms — see the <a href="https://github.com/Keenetix/keenetix" target="_blank" rel="noreferrer noopener">public repository</a>.</p>
+      <p>The Service, including the Keenetix name, logo, and brand system, belongs to Keenetix Protocol. Open-source components are licensed under their own terms — see the <a href="https://github.com/Keenetix/keenetix" target="_blank" rel="noreferrer noopener">public repository</a>.</p>
       <p>You retain ownership of the content you submit. You grant us a non-exclusive licence to process it strictly as needed to operate the Service.</p>
     </>,
   },
@@ -84,14 +84,14 @@ const sections: LegalSection[] = [
     id: "liability",
     title: "Limitation of liability",
     body: <>
-      <p>To the maximum extent permitted by law, Keenetix Labs is not liable for indirect, incidental, special, consequential, exemplary, or punitive damages, nor for lost profits, lost value, lost data, or lost digital assets, arising from or relating to the Service.</p>
+      <p>To the maximum extent permitted by law, Keenetix Protocol is not liable for indirect, incidental, special, consequential, exemplary, or punitive damages, nor for lost profits, lost value, lost data, or lost digital assets, arising from or relating to the Service.</p>
       <p>Our total aggregate liability for all claims is limited to the greater of the fees you paid us in the twelve months preceding the claim, or one hundred US dollars.</p>
     </>,
   },
   {
     id: "indemnity",
     title: "Indemnity",
-    body: <p>You agree to indemnify and hold harmless Keenetix Labs and its personnel from any claim, loss, or expense — including reasonable legal fees — arising from your use of the Service, your breach of these terms, the conduct of agents you operate, or your violation of any law or third-party right.</p>,
+    body: <p>You agree to indemnify and hold harmless Keenetix Protocol and its personnel from any claim, loss, or expense — including reasonable legal fees — arising from your use of the Service, your breach of these terms, the conduct of agents you operate, or your violation of any law or third-party right.</p>,
   },
   {
     id: "termination",
@@ -106,7 +106,7 @@ const sections: LegalSection[] = [
   {
     id: "law",
     title: "Governing law and disputes",
-    body: <p>These terms are governed by the laws of the jurisdiction in which Keenetix Labs is established, without regard to conflict-of-law rules. Before formal proceedings, both parties agree to attempt in good faith to resolve any dispute by contacting the other in writing.</p>,
+    body: <p>These terms are governed by the laws of the jurisdiction in which Keenetix Protocol is established, without regard to conflict-of-law rules. Before formal proceedings, both parties agree to attempt in good faith to resolve any dispute by contacting the other in writing.</p>,
   },
   {
     id: "contact",
@@ -124,7 +124,7 @@ export default function TermsPage() {
       lede="These terms describe what Keenetix does, what it does not do, and what you take responsibility for when you commit capital to autonomous work."
       updated="5 August 2026"
       sections={sections}
-      footnote={<>Keenetix Labs · <Link href="/security">Security</Link> · <a href="https://github.com/Keenetix/keenetix" target="_blank" rel="noreferrer noopener">Source</a></>}
+      footnote={<>Keenetix Protocol · <Link href="/security">Security</Link> · <a href="https://github.com/Keenetix/keenetix" target="_blank" rel="noreferrer noopener">Source</a></>}
     />
   );
 }

@@ -44,7 +44,7 @@ export function SiteFooter() {
         <div><p>Build</p>{buildLinks.map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}</div>
         <div><p>Legal</p>{legalLinks.map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}</div>
       </div>
-      <span className="copyright">© 2026 KEENETIX LABS</span>
+      <span className="copyright">© 2026 KEENETIX PROTOCOL</span>
     </footer>
   );
 }
