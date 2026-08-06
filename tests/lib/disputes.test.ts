@@ -1,13 +1,26 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { agents, commitments, developerAccounts, disputes, organizations, reputationRecords, settlements, users, workspaces } from "@/db/schema";
-import { createDispute, resolveDispute } from "@/lib/keenetix";
+import { confirmSettlementReceipt, createDispute, resolveDispute, submitSettlementReceipt } from "@/lib/keenetix";
 import { TestRegistry } from "../helpers/db-cleanup";
 const registry = new TestRegistry();
 afterAll(async () => {
   await registry.cleanup();
 });
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+const ESCROW = `0x${"22".repeat(20)}`;
+const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const USDC_DECIMALS = 6;
+process.env.EVM_RPC_URL = process.env.EVM_RPC_URL ?? "http://127.0.0.1:8545";
+function mockReceipt(amount: bigint, transactionHash: string) {
+  const paddedEscrow = ESCROW.slice(2).toLowerCase().padStart(64, "0");
+  vi.stubGlobal("fetch", vi.fn(async () => ({
+    json: async () => ({ result: { status: "0x1", blockNumber: "0x10", transactionHash, logs: [{ topics: [TRANSFER_TOPIC, `0x${"00".repeat(32)}`, `0x${paddedEscrow}`], data: `0x${amount.toString(16).padStart(64, "0")}` }] } }),
+  })));
+}
 async function setupDisputable(status = "verified", budget = 1000) {
   const suffix = Math.random().toString(36).slice(2, 8);
   const [organization] = await db.insert(organizations).values({ name: `Dispute Test ${suffix}`, slug: `dispute-test-${suffix}` }).returning();
@@ -59,6 +72,21 @@ describe("dispute resolution", () => {
     expect(settlement.status).toBe("awaiting_wallet");
     const [worker] = await db.select().from(agents).where(eq(agents.id, agent.id)).limit(1);
     expect(Number(worker.reputation)).toBe(79.5);
+  });
+  it("settles a split award on-chain for the reduced amount, not the full budget", async () => {
+    const { workspace, user, agent, commitment } = await setupDisputable("verified", 1000);
+    const dispute = await createDispute({ commitmentId: commitment.id, userId: user.id, workspaceId: workspace.id, reason: "Partial delivery." });
+    await resolveDispute({ disputeId: dispute.id, workspaceId: workspace.id, outcome: "split", splitBps: 4000, note: "Two of five conditions met.", userId: user.id });
+    const transactionHash = `0x${"ef".repeat(32)}`;
+    await submitSettlementReceipt({ workspaceId: workspace.id, commitmentId: commitment.id, transactionHash, chain: "evm", chainId: 1, escrowAddress: ESCROW });
+    // The escrow pays the awarded 400, so a receipt for the full 1000 must not be accepted.
+    mockReceipt(BigInt(1000 * 10 ** USDC_DECIMALS), transactionHash);
+    await expect(confirmSettlementReceipt({ workspaceId: workspace.id, transactionHash })).rejects.toThrow(/does not pay the required amount/);
+    mockReceipt(BigInt(400 * 10 ** USDC_DECIMALS), transactionHash);
+    const result = await confirmSettlementReceipt({ workspaceId: workspace.id, transactionHash });
+    expect(result.status).toBe("settled");
+    const [worker] = await db.select().from(agents).where(eq(agents.id, agent.id)).limit(1);
+    expect(Number(worker.totalEarnings)).toBe(1300);
   });
   it("rejects a second resolution of the same dispute", async () => {
     const { workspace, user, commitment } = await setupDisputable();
