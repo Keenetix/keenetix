@@ -182,10 +182,19 @@ export const commitmentBids = pgTable("commitment_bids", {
 export const disputes = pgTable("disputes", {
   id: serial("id").primaryKey(),
   commitmentId: integer("commitment_id").notNull().references(() => commitments.id, { onDelete: "cascade" }),
-  raisedByUserId: integer("raised_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Either a signed-in member or an API key can raise and resolve a dispute, so both attributions are optional.
+  raisedByUserId: integer("raised_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  raisedByApiKeyId: integer("raised_by_api_key_id").references(() => apiKeys.id, { onDelete: "set null" }),
   reason: text("reason").notNull(),
   status: varchar("status", { length: 32 }).notNull().default("open"),
+  // The lifecycle state escrow was frozen at, so a `release` outcome can resume exactly where it stopped.
+  previousStatus: varchar("previous_status", { length: 32 }).notNull().default("verified"),
+  outcome: varchar("outcome", { length: 32 }),
+  // Worker share in basis points, set only when `outcome` is "split".
+  splitBps: integer("split_bps"),
   resolution: text("resolution"),
+  resolvedByUserId: integer("resolved_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  resolvedByApiKeyId: integer("resolved_by_api_key_id").references(() => apiKeys.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });

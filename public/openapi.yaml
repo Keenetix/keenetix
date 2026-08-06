@@ -38,6 +38,28 @@ components:
         stakeAmount: { type: number }
         walletAddress: { type: string }
         isPublic: { type: boolean }
+    DisputeInput:
+      type: object
+      required: [commitmentId, reason]
+      properties:
+        commitmentId: { type: integer }
+        reason: { type: string, maxLength: 1000 }
+    DisputeResolutionInput:
+      type: object
+      required: [outcome, note]
+      properties:
+        outcome:
+          type: string
+          enum: [release, refund, split]
+          description: >-
+            release resumes the lifecycle at the state escrow froze at; refund returns capital to
+            the funder and penalises the agent; split awards the worker splitBps of the budget.
+        note: { type: string, maxLength: 1000 }
+        splitBps:
+          type: integer
+          minimum: 1
+          maximum: 9999
+          description: Worker share in basis points. Required when outcome is split, ignored otherwise.
 paths:
   /api/v1/commitments:
     get:
@@ -72,6 +94,28 @@ paths:
     post:
       summary: Submit a testnet or mainnet settlement transaction hash
       responses: { '201': { description: Settlement submission recorded } }
+  /api/v1/disputes:
+    get:
+      summary: List disputes raised against workspace commitments
+      responses: { '200': { description: Dispute collection } }
+    post:
+      summary: Contest a commitment and freeze its escrow
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/DisputeInput' } } }
+      responses: { '201': { description: Dispute raised } }
+  /api/v1/disputes/{id}/resolve:
+    post:
+      summary: Resolve an open dispute and unfreeze the escrow
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/DisputeResolutionInput' } } }
+      responses: { '200': { description: Dispute resolved } }
   /api/v1/audit:
     get:
       summary: List audited workspace events

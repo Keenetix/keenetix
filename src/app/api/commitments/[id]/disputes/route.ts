@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { getCurrentIdentity } from "@/lib/auth";
-import { createDispute } from "@/lib/keenetix";
+import { createDispute, listDisputes } from "@/lib/keenetix";
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+  const identity = await getCurrentIdentity();
+  if (!identity) return NextResponse.json({ error: "Sign in is required." }, { status: 401 });
+  const { id } = await context.params;
+  const commitmentId = Number(id);
+  if (!Number.isInteger(commitmentId)) return NextResponse.json({ error: "Invalid commitment id." }, { status: 400 });
+  const all = await listDisputes(identity.workspaceId);
+  return NextResponse.json({ disputes: all.filter((dispute) => dispute.commitmentId === commitmentId) });
+}
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const identity = await getCurrentIdentity();
   if (!identity) return NextResponse.json({ error: "Sign in is required." }, { status: 401 });

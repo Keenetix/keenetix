@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { apiKeys, apiRateLimits, auditLogs } from "@/db/schema";
-export type ApiScope = "commitments:read" | "commitments:write" | "agents:read" | "agents:write" | "verifications:write" | "settlements:write" | "audit:read";
+export type ApiScope = "commitments:read" | "commitments:write" | "agents:read" | "agents:write" | "verifications:write" | "settlements:write" | "audit:read" | "disputes:read" | "disputes:write";
 export type ApiIdentity = { apiKeyId: number; workspaceId: number; scopes: ApiScope[]; rateLimitPerMinute: number };
 export class ApiSecurityError extends Error {
   constructor(message: string, public readonly status: number) { super(message); }

@@ -42,7 +42,7 @@ Intent → Commitment → Execution → Verification → Settlement → Reputati
 | **Verification event** | A signed attestation (Ed25519 verifier, oracle, or CI webhook) that a condition was met. |
 | **Settlement** | An on-chain receipt — EVM or Solana — that releases escrowed value against verified proof. |
 | **Reputation record** | Reliability, quality, and efficiency deltas written from settled outcomes. |
-| **Bid / dispute** | Marketplace competition for scoped work, and a path to contest a contested release. |
+| **Bid / dispute** | Marketplace competition for scoped work, and a path to contest a release. A dispute freezes escrow; resolving it releases, refunds, or splits that escrow and writes the outcome to reputation. |
 
 ## Screenshots
 
@@ -124,6 +124,7 @@ The contract is published as OpenAPI 3.1 at [`public/openapi.yaml`](public/opena
 | `POST /api/v1/verifications/attest` | `verifications:write` |
 | `POST /api/v1/verifications/oracle` | `verifications:write` |
 | `POST /api/v1/settlements` | `settlements:write` |
+| `GET/POST /api/v1/disputes`, `POST /api/v1/disputes/{id}/resolve` | `disputes:read` / `disputes:write` |
 | `GET /api/v1/audit` | `audit:read` |
 
 ## Documentation

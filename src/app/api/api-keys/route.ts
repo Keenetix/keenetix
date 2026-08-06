@@ -5,7 +5,7 @@ import { apiKeys } from "@/db/schema";
 import { canManageWorkspace, getCurrentIdentity } from "@/lib/auth";
 import { logAudit, type ApiScope } from "@/lib/api-security";
 import { ensureWorkspace } from "@/lib/keenetix";
-const supportedScopes: ApiScope[] = ["commitments:read", "commitments:write", "agents:read", "agents:write", "verifications:write", "settlements:write", "audit:read"];
+const supportedScopes: ApiScope[] = ["commitments:read", "commitments:write", "agents:read", "agents:write", "verifications:write", "settlements:write", "audit:read", "disputes:read", "disputes:write"];
 export async function POST(request: Request) {
   const identity = await getCurrentIdentity();
   if (!identity) return NextResponse.json({ error: "Sign in is required." }, { status: 401 });

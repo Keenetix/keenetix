@@ -24,7 +24,7 @@ const REVEAL_SELECTOR = [
   ".color-grid article",
   ".lockup-card",
   ".commitment-spec-card",
-  ".dashboard-stats article",
+  ".pipeline-card",
   ".dash-panel",
   ".agent-list article",
   ".commitment-table > div:not(.commitment-table-head)",

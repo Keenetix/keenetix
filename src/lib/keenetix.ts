@@ -7,7 +7,13 @@ import { logAudit } from "@/lib/api-security";
 const PUBLIC_DEMO_EMAIL = "demo@keenetix.local";
 const PUBLIC_DEMO_WORKSPACE = "public-demo";
 export type DemoAction = "fund" | "assign" | "verify" | "settle" | "reset";
+export type DisputeOutcome = "release" | "refund" | "split";
+export const DISPUTE_OUTCOMES: DisputeOutcome[] = ["release", "refund", "split"];
 const defaultRules = ["All CI checks pass", "Security scan is clear", "Reviewer attestation recorded"];
+/** Only escrowed work can be disputed — a draft holds no capital, and a settled one has already paid out. */
+const DISPUTABLE_STATES = ["funded", "executing", "verified", "awaiting_settlement", "settlement_submitted"];
+/** Commitment states where the budget is locked and not yet released. Disputed escrow is still locked. */
+const ESCROWED_STATES = [...DISPUTABLE_STATES, "disputed"];
 /** Starter roster every new workspace gets, private by default. */
 const STARTER_AGENTS = [
   { name: "Iris", role: "Software engineering agent", description: "Autonomous full-stack software delivery, test remediation, and refactors.", capabilities: ["typescript", "github", "ci-cd", "security"], hourlyRate: "125.00", stakeAmount: "2400.00", walletAddress: "0x8d31...bE4a", reputation: "98.70", completedCommitments: 128, totalEarnings: "48200.00" },
@@ -56,14 +62,19 @@ async function ensurePublicDemoWorkspace() {
 }
 export async function getDashboardData(workspaceId: number) {
   const { workspace } = await ensureWorkspace(workspaceId);
-  const [commitmentRows, workerRows, keyRows, settlementRows] = await Promise.all([
+  const [commitmentRows, workerRows, keyRows, settlementRows, eventRows, disputeRows] = await Promise.all([
     db.select({ id: commitments.id, reference: commitments.reference, objective: commitments.objective, budget: commitments.budget, asset: commitments.asset, deadline: commitments.deadline, status: commitments.status, assignedAgentName: agents.name, createdAt: commitments.createdAt }).from(commitments).leftJoin(agents, eq(commitments.assignedAgentId, agents.id)).where(eq(commitments.workspaceId, workspace.id)).orderBy(desc(commitments.createdAt)),
     db.select().from(agents).where(eq(agents.workspaceId, workspace.id)).orderBy(desc(agents.reputation)),
     db.select({ id: apiKeys.id, name: apiKeys.name, keyPrefix: apiKeys.keyPrefix, scopes: apiKeys.scopes, rateLimitPerMinute: apiKeys.rateLimitPerMinute, lastUsedAt: apiKeys.lastUsedAt, createdAt: apiKeys.createdAt }).from(apiKeys).where(and(eq(apiKeys.workspaceId, workspace.id), isNull(apiKeys.revokedAt))).orderBy(desc(apiKeys.createdAt)),
-    db.select({ amount: settlements.amount, status: settlements.status }).from(settlements).innerJoin(commitments, eq(settlements.commitmentId, commitments.id)).where(eq(commitments.workspaceId, workspace.id)),
+    db.select({ amount: settlements.amount, status: settlements.status, asset: settlements.asset, transactionHash: settlements.transactionHash, settledAt: settlements.settledAt, createdAt: settlements.createdAt, reference: commitments.reference }).from(settlements).innerJoin(commitments, eq(settlements.commitmentId, commitments.id)).where(eq(commitments.workspaceId, workspace.id)).orderBy(desc(settlements.createdAt)),
+    db.select({ id: verificationEvents.id, type: verificationEvents.type, status: verificationEvents.status, createdAt: verificationEvents.createdAt, reference: commitments.reference, agentName: agents.name }).from(verificationEvents).innerJoin(commitments, eq(verificationEvents.commitmentId, commitments.id)).leftJoin(agents, eq(commitments.assignedAgentId, agents.id)).where(eq(commitments.workspaceId, workspace.id)).orderBy(desc(verificationEvents.createdAt)).limit(6),
+    listDisputes(workspace.id),
   ]);
-  const settledValue = settlementRows.filter((settlement) => settlement.status === "settled").reduce((total, settlement) => total + Number(settlement.amount), 0);
-  return { workspace, commitments: commitmentRows, agents: workerRows, apiKeys: keyRows, summary: { activeCommitments: commitmentRows.filter((commitment) => !["settled", "draft"].includes(commitment.status)).length, totalCommitments: commitmentRows.length, settledValue, activeAgents: workerRows.filter((agent) => agent.status !== "offline").length } };
+  const settled = settlementRows.filter((settlement) => settlement.status === "settled");
+  const settledValue = settled.reduce((total, settlement) => total + Number(settlement.amount), 0);
+  const escrowed = commitmentRows.filter((commitment) => ESCROWED_STATES.includes(commitment.status));
+  const openDisputes = disputeRows.filter((dispute) => dispute.status === "open");
+  return { workspace, commitments: commitmentRows, agents: workerRows, apiKeys: keyRows, settlements: settlementRows, events: eventRows, disputes: disputeRows, summary: { activeCommitments: commitmentRows.filter((commitment) => !["settled", "draft"].includes(commitment.status)).length, totalCommitments: commitmentRows.length, settledValue, escrowedValue: escrowed.reduce((total, commitment) => total + Number(commitment.budget), 0), escrowedCommitments: escrowed.length, activeAgents: workerRows.filter((agent) => agent.status !== "offline").length, openDisputes: openDisputes.length, disputedValue: openDisputes.reduce((total, dispute) => total + Number(dispute.budget), 0) } };
 }
 export async function createCommitment(input: { workspaceId: number; objective: string; budget: number; deadline: string; agentId?: number; verificationRules: string[]; repository?: string }) {
   const { account } = await ensureWorkspace(input.workspaceId);
@@ -129,7 +140,9 @@ export async function submitSettlementReceipt(input: { workspaceId: number; comm
   if (!commitment) throw new Error("Commitment not found in this workspace.");
   if (!["verified", "awaiting_settlement"].includes(commitment.status)) throw new Error("Settlement is only available after verification.");
   const [existing] = await db.select().from(settlements).where(eq(settlements.commitmentId, commitment.id)).orderBy(desc(settlements.createdAt)).limit(1);
-  const values = { amount: commitment.budget, asset: commitment.asset, status: "submitted", transactionHash: input.transactionHash, chain, chainId: input.chainId ?? null, escrowAddress: input.escrowAddress };
+  // A split dispute resolution pre-writes the reduced award onto the settlement row, so an existing
+  // amount always wins over the full budget. In the undisputed path the two are identical.
+  const values = { amount: existing?.amount ?? commitment.budget, asset: commitment.asset, status: "submitted", transactionHash: input.transactionHash, chain, chainId: input.chainId ?? null, escrowAddress: input.escrowAddress };
   const settlement = existing ? (await db.update(settlements).set(values).where(eq(settlements.id, existing.id)).returning())[0] : (await db.insert(settlements).values({ commitmentId: commitment.id, ...values }).returning())[0];
   await db.update(commitments).set({ status: "settlement_submitted", updatedAt: new Date() }).where(eq(commitments.id, commitment.id));
   await logAudit({ workspaceId: input.workspaceId, action: "settlement.submitted", entityType: "settlement", entityId: settlement.id, metadata: { transactionHash: input.transactionHash, chain, chainId: input.chainId } });
@@ -156,7 +169,7 @@ async function confirmEvmSettlement(workspaceId: number, settlement: SettlementR
   if (!payload.result) return { status: "pending" as const };
   if (payload.result.status !== "0x1") throw new Error("The submitted transaction reverted on-chain.");
   const expectedTo = settlement.escrowAddress?.toLowerCase();
-  const expectedAmount = BigInt(Math.round(Number(commitment.budget) * 10 ** USDC_DECIMALS));
+  const expectedAmount = BigInt(Math.round(Number(settlement.amount) * 10 ** USDC_DECIMALS));
   const transferLog = payload.result.logs?.find((log) => log.topics?.[0] === ERC20_TRANSFER_TOPIC && log.topics.length === 3 && `0x${log.topics[2].slice(-40)}`.toLowerCase() === expectedTo);
   if (!expectedTo || !transferLog || BigInt(transferLog.data ?? "0x0") !== expectedAmount) {
     throw new Error("The transaction does not pay the required amount to the commitment escrow.");
@@ -172,7 +185,7 @@ async function confirmSolanaSettlement(workspaceId: number, settlement: Settleme
   if (!parsed) return { status: "pending" as const };
   if (parsed.meta?.err) throw new Error("The submitted transaction failed on-chain.");
   const expectedTo = settlement.escrowAddress;
-  const expectedAmount = BigInt(Math.round(Number(commitment.budget) * 10 ** USDC_DECIMALS));
+  const expectedAmount = BigInt(Math.round(Number(settlement.amount) * 10 ** USDC_DECIMALS));
   const instructions = parsed.transaction.message.instructions as unknown as { program?: string; parsed?: { type?: string; info?: { destination?: string; amount?: string; tokenAmount?: { amount?: string } } } }[];
   const transferIx = instructions.find((ix) => ix.program === "spl-token" && (ix.parsed?.type === "transfer" || ix.parsed?.type === "transferChecked") && ix.parsed.info?.destination === expectedTo);
   const paidAmount = transferIx?.parsed?.info?.tokenAmount?.amount ?? transferIx?.parsed?.info?.amount;
@@ -188,7 +201,7 @@ async function finalizeSettlement(workspaceId: number, settlement: SettlementRow
     const [worker] = await db.select().from(agents).where(eq(agents.id, commitment.assignedAgentId)).limit(1);
     if (worker) {
       const nextReputation = Math.min(99.99, Number(worker.reputation) + 0.2).toFixed(2);
-      await db.update(agents).set({ status: "available", reputation: nextReputation, completedCommitments: worker.completedCommitments + 1, totalEarnings: (Number(worker.totalEarnings) + Number(commitment.budget)).toFixed(2) }).where(eq(agents.id, worker.id));
+      await db.update(agents).set({ status: "available", reputation: nextReputation, completedCommitments: worker.completedCommitments + 1, totalEarnings: (Number(worker.totalEarnings) + Number(settlement.amount)).toFixed(2) }).where(eq(agents.id, worker.id));
       await db.insert(reputationRecords).values({ agentId: worker.id, commitmentId: commitment.id, reliability: "99.00", quality: "98.00", efficiency: "97.00", delta: ".20", note: "Verified on-chain settlement confirmed" });
     }
   }
@@ -239,7 +252,7 @@ export async function approveBid(input: { commitmentId: number; bidId: number; w
   await logAudit({ workspaceId: input.workspaceId, action: "bid.approved", entityType: "commitment_bid", entityId: bid.id, metadata: { commitmentId: commitment.id, agentId: bid.agentId } });
   return { commitment: updatedCommitment, bid: updatedBid };
 }
-export async function createDispute(input: { commitmentId: number; userId: number; workspaceId: number; reason: string }) {
+export async function createDispute(input: { commitmentId: number; workspaceId: number; reason: string; userId?: number; apiKeyId?: number }) {
   const [commitment] = await db.select().from(commitments).where(eq(commitments.id, input.commitmentId)).limit(1);
   if (!commitment) throw new Error("Commitment not found.");
   let authorized = commitment.workspaceId === input.workspaceId;
@@ -248,12 +261,89 @@ export async function createDispute(input: { commitmentId: number; userId: numbe
     authorized = agent?.workspaceId === input.workspaceId;
   }
   if (!authorized) throw new Error("You do not have access to dispute this commitment.");
+  if (!DISPUTABLE_STATES.includes(commitment.status)) throw new Error(`A ${commitment.status} commitment holds no escrow to dispute.`);
   const [existing] = await db.select({ id: disputes.id }).from(disputes).where(and(eq(disputes.commitmentId, input.commitmentId), eq(disputes.status, "open"))).limit(1);
   if (existing) throw new Error("An open dispute already exists for this commitment.");
-  const [dispute] = await db.insert(disputes).values({ commitmentId: input.commitmentId, raisedByUserId: input.userId, reason: input.reason.trim().slice(0, 1000) }).returning();
+  const [dispute] = await db.insert(disputes).values({ commitmentId: input.commitmentId, raisedByUserId: input.userId, raisedByApiKeyId: input.apiKeyId, previousStatus: commitment.status, reason: input.reason.trim().slice(0, 1000) }).returning();
   await db.update(commitments).set({ status: "disputed", updatedAt: new Date() }).where(eq(commitments.id, commitment.id));
-  await logAudit({ workspaceId: input.workspaceId, userId: input.userId, action: "dispute.raised", entityType: "dispute", entityId: dispute.id, metadata: { commitmentId: commitment.id } });
+  await db.insert(verificationEvents).values({ commitmentId: commitment.id, type: "dispute_raised", provider: "Keenetix arbitration", status: "pending", evidence: { disputeId: dispute.id, frozenFrom: commitment.status }, attestor: "Keenetix protocol" });
+  await logAudit({ workspaceId: input.workspaceId, userId: input.userId, apiKeyId: input.apiKeyId, action: "dispute.raised", entityType: "dispute", entityId: dispute.id, metadata: { commitmentId: commitment.id, previousStatus: commitment.status } });
   return dispute;
+}
+/**
+ * Closes an open dispute and unfreezes the escrow behind it. Every outcome is terminal for the
+ * dispute; what differs is where the commitment lands:
+ *
+ * - `release`  — the claim is dropped and the lifecycle resumes at the state it froze at.
+ * - `refund`   — capital returns to the funder, pending settlements are cancelled, the worker
+ *                takes a reliability penalty and is freed for other work.
+ * - `split`    — the worker is awarded `splitBps` of the budget. The commitment is moved to
+ *                `verified` and the reduced award is written onto the settlement row, so the
+ *                normal on-chain settlement path pays out the partial amount and verifies
+ *                against it.
+ *
+ * Only the workspace that funded the commitment may resolve — an agent's workspace can raise a
+ * dispute but must not be able to award itself the escrow it is contesting.
+ */
+export async function resolveDispute(input: { disputeId: number; workspaceId: number; outcome: DisputeOutcome; note: string; splitBps?: number; userId?: number; apiKeyId?: number }) {
+  if (!DISPUTE_OUTCOMES.includes(input.outcome)) throw new Error("Resolution must be release, refund, or split.");
+  const splitBps = input.outcome === "split" ? Math.round(input.splitBps ?? 0) : null;
+  if (splitBps !== null && (!Number.isInteger(splitBps) || splitBps < 1 || splitBps > 9999)) throw new Error("A split must award the worker between 1 and 9999 basis points.");
+  const note = input.note.trim().slice(0, 1000);
+  if (!note) throw new Error("Provide a resolution note explaining the decision.");
+  const [row] = await db.select().from(disputes).innerJoin(commitments, eq(disputes.commitmentId, commitments.id)).where(eq(disputes.id, input.disputeId)).limit(1);
+  if (!row) throw new Error("Dispute not found.");
+  const { disputes: dispute, commitments: commitment } = row;
+  if (commitment.workspaceId !== input.workspaceId) throw new Error("Only the workspace that funded this commitment can resolve its dispute.");
+  if (dispute.status !== "open") throw new Error("This dispute has already been resolved.");
+  const award = splitBps === null ? null : (Number(commitment.budget) * splitBps / 10_000).toFixed(2);
+  const nextStatus = input.outcome === "release" ? dispute.previousStatus : input.outcome === "refund" ? "refunded" : "verified";
+
+  if (input.outcome === "refund") {
+    await db.update(settlements).set({ status: "cancelled" }).where(and(eq(settlements.commitmentId, commitment.id), ne(settlements.status, "settled")));
+  }
+  if (input.outcome === "split" && award) {
+    const [existing] = await db.select({ id: settlements.id }).from(settlements).where(and(eq(settlements.commitmentId, commitment.id), ne(settlements.status, "settled"))).orderBy(desc(settlements.createdAt)).limit(1);
+    const values = { amount: award, status: "awaiting_wallet", transactionHash: null, receipt: null, settledAt: null };
+    if (existing) await db.update(settlements).set(values).where(eq(settlements.id, existing.id));
+    else await db.insert(settlements).values({ commitmentId: commitment.id, asset: commitment.asset, ...values });
+  }
+  if (input.outcome !== "release") await applyDisputePenalty(commitment, input.outcome, award);
+
+  const [resolved] = await db.update(disputes).set({ status: "resolved", outcome: input.outcome, splitBps, resolution: note, resolvedByUserId: input.userId, resolvedByApiKeyId: input.apiKeyId, resolvedAt: new Date() }).where(and(eq(disputes.id, dispute.id), eq(disputes.status, "open"))).returning();
+  if (!resolved) throw new Error("This dispute has already been resolved.");
+  await db.update(commitments).set({ status: nextStatus, updatedAt: new Date() }).where(eq(commitments.id, commitment.id));
+  await db.insert(verificationEvents).values({ commitmentId: commitment.id, type: "dispute_resolved", provider: "Keenetix arbitration", status: input.outcome === "refund" ? "failed" : "passed", evidence: { disputeId: dispute.id, outcome: input.outcome, splitBps, award }, attestor: "Keenetix protocol" });
+  await logAudit({ workspaceId: input.workspaceId, userId: input.userId, apiKeyId: input.apiKeyId, action: "dispute.resolved", entityType: "dispute", entityId: dispute.id, metadata: { commitmentId: commitment.id, outcome: input.outcome, splitBps, award, nextStatus } });
+  return { dispute: resolved, commitmentStatus: nextStatus, award };
+}
+/** Writes the reputation cost of a dispute that did not go the worker's way, and frees the agent. */
+async function applyDisputePenalty(commitment: CommitmentRow, outcome: Exclude<DisputeOutcome, "release">, award: string | null) {
+  if (!commitment.assignedAgentId) return;
+  const [worker] = await db.select().from(agents).where(eq(agents.id, commitment.assignedAgentId)).limit(1);
+  if (!worker) return;
+  const penalty = outcome === "refund" ? 1.5 : 0.5;
+  const nextReputation = Math.max(0, Number(worker.reputation) - penalty).toFixed(2);
+  // Earnings are untouched: a split still settles on-chain later, and that is what credits the worker.
+  await db.update(agents).set({ status: "available", reputation: nextReputation }).where(eq(agents.id, worker.id));
+  await db.insert(reputationRecords).values({
+    agentId: worker.id,
+    commitmentId: commitment.id,
+    reliability: outcome === "refund" ? "0.00" : "60.00",
+    quality: outcome === "refund" ? "0.00" : "60.00",
+    efficiency: outcome === "refund" ? "0.00" : "70.00",
+    delta: (-penalty).toFixed(2),
+    note: outcome === "refund" ? "Dispute resolved as a full refund to the funder" : `Dispute resolved as a partial award of ${award} ${commitment.asset}`,
+  });
+}
+export async function listDisputes(workspaceId: number) {
+  return db.select({ id: disputes.id, commitmentId: disputes.commitmentId, reason: disputes.reason, status: disputes.status, outcome: disputes.outcome, splitBps: disputes.splitBps, resolution: disputes.resolution, previousStatus: disputes.previousStatus, createdAt: disputes.createdAt, resolvedAt: disputes.resolvedAt, reference: commitments.reference, objective: commitments.objective, budget: commitments.budget, asset: commitments.asset, commitmentStatus: commitments.status, agentName: agents.name, raisedByName: users.name })
+    .from(disputes)
+    .innerJoin(commitments, eq(disputes.commitmentId, commitments.id))
+    .leftJoin(agents, eq(commitments.assignedAgentId, agents.id))
+    .leftJoin(users, eq(disputes.raisedByUserId, users.id))
+    .where(eq(commitments.workspaceId, workspaceId))
+    .orderBy(desc(disputes.createdAt));
 }
 export async function registerAgent(input: { workspaceId: number; name: string; role: string; description: string; capabilities: string[]; hourlyRate: number; stakeAmount: number; walletAddress: string; isPublic: boolean; verificationPublicKey?: string }) {
   await ensureWorkspace(input.workspaceId);
