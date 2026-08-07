@@ -1,0 +1,67 @@
+name: Publish SDK
+
+# Publishing is deliberately manual. A version can never be republished or truly
+# unpublished, so this does not run on push.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Pack and validate without publishing"
+        type: boolean
+        default: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Lets npm attach a provenance attestation tying the package to this repo and commit.
+      id-token: write
+    defaults:
+      run:
+        working-directory: packages/keenetix-sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install root dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Build the package
+        working-directory: .
+        run: npm run build:sdk
+
+      - name: Fail if this version is already published
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Checking $NAME@$VERSION"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "::error::$NAME@$VERSION is already published. Bump the version first."
+            exit 1
+          fi
+
+      - name: Pack and inspect contents
+        run: |
+          npm pack --dry-run
+          npm pack
+
+      - name: Publish
+        if: ${{ inputs.dry_run == false }}
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "${{ inputs.dry_run }}" = "false" ]; then
+            echo "Published $NAME@$VERSION" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Dry run only. $NAME@$VERSION was packed but not published." >> $GITHUB_STEP_SUMMARY
+          fi

@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:sdk": "tsc -p packages/keenetix-sdk/tsconfig.build.json",
     "prestart": "drizzle-kit push --force",
     "start": "next start",
     "lint": "eslint .",

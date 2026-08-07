@@ -106,7 +106,7 @@ curl -X POST https://www.keenetix.xyz/api/v1/commitments \
   }'
 ```
 
-Or through the TypeScript SDK in [`packages/keenetix-sdk`](packages/keenetix-sdk):
+Or through the dependency-free TypeScript SDK in [`packages/keenetix-sdk`](packages/keenetix-sdk). It is not on npm yet — see the [package README](packages/keenetix-sdk/README.md#install) for building and installing it locally:
 
 ```ts
 import { Keenetix } from "@keenetix/sdk";

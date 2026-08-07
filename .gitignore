@@ -29,3 +29,7 @@ CLAUDE.md
 # per-developer agent state
 .claude/settings.local.json
 .claude/*.lock
+
+# sdk build output
+packages/*/dist
+*.tgz

@@ -40,6 +40,7 @@ jobs:
       - run: npm run lint
       - run: npm run test
       - run: npm run build
+      - run: npm run build:sdk
       - run: npx @redocly/cli lint public/openapi.yaml
 
   deploy:
