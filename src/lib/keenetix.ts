@@ -3,7 +3,7 @@ import { and, desc, eq, gte, inArray, isNull, lte, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { agents, apiKeys, commitmentBids, commitments, developerAccounts, disputes, organizations, reputationRecords, settlements, users, verificationEvents, verificationIntegrations, workspaceMemberships, workspaces } from "@/db/schema";
 import { hashPassword } from "@/lib/auth";
-import { logAudit } from "@/lib/api-security";
+import { ProtocolError, logAudit } from "@/lib/api-security";
 const PUBLIC_DEMO_EMAIL = "demo@keenetix.local";
 const PUBLIC_DEMO_WORKSPACE = "public-demo";
 export type DemoAction = "fund" | "assign" | "verify" | "settle" | "reset";
@@ -31,6 +31,7 @@ const MARKETPLACE_AGENTS = [
 ];
 export async function ensureWorkspace(workspaceId: number) {
   const [workspace] = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
+  // An authenticated caller always has a real workspace, so a miss here is our bug, not theirs.
   if (!workspace) throw new Error("Workspace not found.");
   const systemEmail = `workspace-${workspace.id}@keenetix.local`;
   let [account] = await db.select().from(developerAccounts).where(eq(developerAccounts.email, systemEmail)).limit(1);
@@ -119,7 +120,7 @@ export async function advanceDemo(action: DemoAction) {
     return getDemoData();
   }
   const expected: Record<Exclude<DemoAction, "reset">, string> = { fund: "draft", assign: "funded", verify: "executing", settle: "verified" };
-  if (demo.status !== expected[action]) throw new Error(`This commitment cannot ${action} while it is ${demo.status}.`);
+  if (demo.status !== expected[action]) throw new ProtocolError(`This commitment cannot ${action} while it is ${demo.status}.`);
   if (action === "fund") {
     await db.update(commitments).set({ status: "funded", updatedAt: new Date() }).where(eq(commitments.id, demo.id));
     await db.insert(verificationEvents).values({ commitmentId: demo.id, type: "escrow_funded", provider: "Keenetix settlement layer", status: "passed", evidence: { amount: demo.budget, asset: demo.asset }, attestor: "Keenetix protocol" });
@@ -149,8 +150,8 @@ export function isValidReceipt(chain: "evm" | "solana", transactionHash: string,
 export async function submitSettlementReceipt(input: { workspaceId: number; commitmentId: number; transactionHash: string; chain?: "evm" | "solana"; chainId?: number; escrowAddress: string }) {
   const chain = input.chain ?? "evm";
   const [commitment] = await db.select().from(commitments).where(and(eq(commitments.id, input.commitmentId), eq(commitments.workspaceId, input.workspaceId))).limit(1);
-  if (!commitment) throw new Error("Commitment not found in this workspace.");
-  if (!["verified", "awaiting_settlement"].includes(commitment.status)) throw new Error("Settlement is only available after verification.");
+  if (!commitment) throw new ProtocolError("Commitment not found in this workspace.", 404);
+  if (!["verified", "awaiting_settlement"].includes(commitment.status)) throw new ProtocolError("Settlement is only available after verification.");
   const [existing] = await db.select().from(settlements).where(eq(settlements.commitmentId, commitment.id)).orderBy(desc(settlements.createdAt)).limit(1);
   // A split dispute resolution pre-writes the reduced award onto the settlement row, so an existing
   // amount always wins over the full budget. In the undisputed path the two are identical.
@@ -166,7 +167,7 @@ type SettlementRow = typeof settlements.$inferSelect;
 type CommitmentRow = typeof commitments.$inferSelect;
 export async function confirmSettlementReceipt(input: { workspaceId: number; transactionHash: string }) {
   const [row] = await db.select().from(settlements).innerJoin(commitments, eq(settlements.commitmentId, commitments.id)).where(and(eq(settlements.transactionHash, input.transactionHash), eq(commitments.workspaceId, input.workspaceId))).limit(1);
-  if (!row) throw new Error("Settlement transaction not found.");
+  if (!row) throw new ProtocolError("Settlement transaction not found.", 404);
   if (row.settlements.status === "settled") {
     return { status: "settled" as const, blockNumber: (row.settlements.receipt as { blockNumber?: string } | null)?.blockNumber };
   }
@@ -179,12 +180,12 @@ async function confirmEvmSettlement(workspaceId: number, settlement: SettlementR
   const response = await fetch(rpcUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getTransactionReceipt", params: [settlement.transactionHash] }), cache: "no-store" });
   const payload = await response.json() as { result?: { status?: string; blockNumber?: string; transactionHash?: string; logs?: { topics?: string[]; data?: string }[] } | null };
   if (!payload.result) return { status: "pending" as const };
-  if (payload.result.status !== "0x1") throw new Error("The submitted transaction reverted on-chain.");
+  if (payload.result.status !== "0x1") throw new ProtocolError("The submitted transaction reverted on-chain.");
   const expectedTo = settlement.escrowAddress?.toLowerCase();
   const expectedAmount = BigInt(Math.round(Number(settlement.amount) * 10 ** USDC_DECIMALS));
   const transferLog = payload.result.logs?.find((log) => log.topics?.[0] === ERC20_TRANSFER_TOPIC && log.topics.length === 3 && `0x${log.topics[2].slice(-40)}`.toLowerCase() === expectedTo);
   if (!expectedTo || !transferLog || BigInt(transferLog.data ?? "0x0") !== expectedAmount) {
-    throw new Error("The transaction does not pay the required amount to the commitment escrow.");
+    throw new ProtocolError("The transaction does not pay the required amount to the commitment escrow.");
   }
   return finalizeSettlement(workspaceId, settlement, commitment, payload.result, payload.result.blockNumber);
 }
@@ -195,14 +196,14 @@ async function confirmSolanaSettlement(workspaceId: number, settlement: Settleme
   const connection = new Connection(rpcUrl, "confirmed");
   const parsed = await connection.getParsedTransaction(settlement.transactionHash!, { maxSupportedTransactionVersion: 0 });
   if (!parsed) return { status: "pending" as const };
-  if (parsed.meta?.err) throw new Error("The submitted transaction failed on-chain.");
+  if (parsed.meta?.err) throw new ProtocolError("The submitted transaction failed on-chain.");
   const expectedTo = settlement.escrowAddress;
   const expectedAmount = BigInt(Math.round(Number(settlement.amount) * 10 ** USDC_DECIMALS));
   const instructions = parsed.transaction.message.instructions as unknown as { program?: string; parsed?: { type?: string; info?: { destination?: string; amount?: string; tokenAmount?: { amount?: string } } } }[];
   const transferIx = instructions.find((ix) => ix.program === "spl-token" && (ix.parsed?.type === "transfer" || ix.parsed?.type === "transferChecked") && ix.parsed.info?.destination === expectedTo);
   const paidAmount = transferIx?.parsed?.info?.tokenAmount?.amount ?? transferIx?.parsed?.info?.amount;
   if (!expectedTo || !transferIx || !paidAmount || BigInt(paidAmount) !== expectedAmount) {
-    throw new Error("The transaction does not pay the required amount to the commitment escrow.");
+    throw new ProtocolError("The transaction does not pay the required amount to the commitment escrow.");
   }
   return finalizeSettlement(workspaceId, settlement, commitment, { slot: parsed.slot }, String(parsed.slot));
 }
@@ -264,28 +265,28 @@ export async function getMarketplaceAgents(filters: { capability?: string; minRe
 }
 export async function createBid(input: { commitmentId: number; agentId: number; workspaceId: number; proposedRate: number; message?: string }) {
   const [commitment] = await db.select().from(commitments).where(eq(commitments.id, input.commitmentId)).limit(1);
-  if (!commitment) throw new Error("Commitment not found.");
-  if (commitment.assignedAgentId) throw new Error("This commitment already has an assigned worker.");
-  if (!["draft", "funded"].includes(commitment.status)) throw new Error("This commitment is not accepting bids.");
+  if (!commitment) throw new ProtocolError("Commitment not found.", 404);
+  if (commitment.assignedAgentId) throw new ProtocolError("This commitment already has an assigned worker.");
+  if (!["draft", "funded"].includes(commitment.status)) throw new ProtocolError("This commitment is not accepting bids.");
   const [agent] = await db.select().from(agents).where(and(eq(agents.id, input.agentId), eq(agents.workspaceId, input.workspaceId))).limit(1);
-  if (!agent) throw new Error("Selected agent is not registered to your workspace.");
+  if (!agent) throw new ProtocolError("Selected agent is not registered to your workspace.");
   const [existing] = await db.select({ id: commitmentBids.id }).from(commitmentBids).where(and(eq(commitmentBids.commitmentId, input.commitmentId), eq(commitmentBids.agentId, input.agentId))).limit(1);
-  if (existing) throw new Error("This agent has already bid on this commitment.");
+  if (existing) throw new ProtocolError("This agent has already bid on this commitment.");
   const [bid] = await db.insert(commitmentBids).values({ commitmentId: input.commitmentId, agentId: input.agentId, workspaceId: input.workspaceId, proposedRate: input.proposedRate.toFixed(2), message: input.message?.trim().slice(0, 500) ?? "" }).returning();
   await logAudit({ workspaceId: input.workspaceId, action: "bid.created", entityType: "commitment_bid", entityId: bid.id, metadata: { commitmentId: input.commitmentId, agentId: input.agentId } });
   return bid;
 }
 export async function listBidsForCommitment(commitmentId: number, workspaceId: number) {
   const [commitment] = await db.select({ id: commitments.id }).from(commitments).where(and(eq(commitments.id, commitmentId), eq(commitments.workspaceId, workspaceId))).limit(1);
-  if (!commitment) throw new Error("Commitment not found in this workspace.");
+  if (!commitment) throw new ProtocolError("Commitment not found in this workspace.", 404);
   return db.select({ id: commitmentBids.id, proposedRate: commitmentBids.proposedRate, message: commitmentBids.message, status: commitmentBids.status, createdAt: commitmentBids.createdAt, agentId: agents.id, agentName: agents.name, agentReputation: agents.reputation }).from(commitmentBids).innerJoin(agents, eq(commitmentBids.agentId, agents.id)).where(eq(commitmentBids.commitmentId, commitmentId)).orderBy(desc(commitmentBids.createdAt));
 }
 export async function approveBid(input: { commitmentId: number; bidId: number; workspaceId: number }) {
   const [commitment] = await db.select().from(commitments).where(and(eq(commitments.id, input.commitmentId), eq(commitments.workspaceId, input.workspaceId))).limit(1);
-  if (!commitment) throw new Error("Commitment not found in this workspace.");
-  if (commitment.assignedAgentId) throw new Error("This commitment already has an assigned worker.");
+  if (!commitment) throw new ProtocolError("Commitment not found in this workspace.", 404);
+  if (commitment.assignedAgentId) throw new ProtocolError("This commitment already has an assigned worker.");
   const [bid] = await db.select().from(commitmentBids).where(and(eq(commitmentBids.id, input.bidId), eq(commitmentBids.commitmentId, input.commitmentId))).limit(1);
-  if (!bid || bid.status !== "pending") throw new Error("This bid is not available to approve.");
+  if (!bid || bid.status !== "pending") throw new ProtocolError("This bid is not available to approve.");
   const [updatedCommitment] = await db.update(commitments).set({ assignedAgentId: bid.agentId, status: "funded", updatedAt: new Date() }).where(eq(commitments.id, commitment.id)).returning();
   const [updatedBid] = await db.update(commitmentBids).set({ status: "approved" }).where(eq(commitmentBids.id, bid.id)).returning();
   await db.update(commitmentBids).set({ status: "rejected" }).where(and(eq(commitmentBids.commitmentId, commitment.id), ne(commitmentBids.id, bid.id)));
@@ -296,16 +297,16 @@ export async function approveBid(input: { commitmentId: number; bidId: number; w
 }
 export async function createDispute(input: { commitmentId: number; workspaceId: number; reason: string; userId?: number; apiKeyId?: number }) {
   const [commitment] = await db.select().from(commitments).where(eq(commitments.id, input.commitmentId)).limit(1);
-  if (!commitment) throw new Error("Commitment not found.");
+  if (!commitment) throw new ProtocolError("Commitment not found.", 404);
   let authorized = commitment.workspaceId === input.workspaceId;
   if (!authorized && commitment.assignedAgentId) {
     const [agent] = await db.select({ workspaceId: agents.workspaceId }).from(agents).where(eq(agents.id, commitment.assignedAgentId)).limit(1);
     authorized = agent?.workspaceId === input.workspaceId;
   }
-  if (!authorized) throw new Error("You do not have access to dispute this commitment.");
-  if (!DISPUTABLE_STATES.includes(commitment.status)) throw new Error(`A ${commitment.status} commitment holds no escrow to dispute.`);
+  if (!authorized) throw new ProtocolError("You do not have access to dispute this commitment.");
+  if (!DISPUTABLE_STATES.includes(commitment.status)) throw new ProtocolError(`A ${commitment.status} commitment holds no escrow to dispute.`);
   const [existing] = await db.select({ id: disputes.id }).from(disputes).where(and(eq(disputes.commitmentId, input.commitmentId), eq(disputes.status, "open"))).limit(1);
-  if (existing) throw new Error("An open dispute already exists for this commitment.");
+  if (existing) throw new ProtocolError("An open dispute already exists for this commitment.");
   const [dispute] = await db.insert(disputes).values({ commitmentId: input.commitmentId, raisedByUserId: input.userId, raisedByApiKeyId: input.apiKeyId, previousStatus: commitment.status, reason: input.reason.trim().slice(0, 1000) }).returning();
   await db.update(commitments).set({ status: "disputed", updatedAt: new Date() }).where(eq(commitments.id, commitment.id));
   await db.insert(verificationEvents).values({ commitmentId: commitment.id, type: "dispute_raised", provider: "Keenetix arbitration", status: "pending", evidence: { disputeId: dispute.id, frozenFrom: commitment.status }, attestor: "Keenetix protocol" });
@@ -328,16 +329,16 @@ export async function createDispute(input: { commitmentId: number; workspaceId: 
  * dispute but must not be able to award itself the escrow it is contesting.
  */
 export async function resolveDispute(input: { disputeId: number; workspaceId: number; outcome: DisputeOutcome; note: string; splitBps?: number; userId?: number; apiKeyId?: number }) {
-  if (!DISPUTE_OUTCOMES.includes(input.outcome)) throw new Error("Resolution must be release, refund, or split.");
+  if (!DISPUTE_OUTCOMES.includes(input.outcome)) throw new ProtocolError("Resolution must be release, refund, or split.");
   const splitBps = input.outcome === "split" ? Math.round(input.splitBps ?? 0) : null;
-  if (splitBps !== null && (!Number.isInteger(splitBps) || splitBps < 1 || splitBps > 9999)) throw new Error("A split must award the worker between 1 and 9999 basis points.");
+  if (splitBps !== null && (!Number.isInteger(splitBps) || splitBps < 1 || splitBps > 9999)) throw new ProtocolError("A split must award the worker between 1 and 9999 basis points.");
   const note = input.note.trim().slice(0, 1000);
-  if (!note) throw new Error("Provide a resolution note explaining the decision.");
+  if (!note) throw new ProtocolError("Provide a resolution note explaining the decision.");
   const [row] = await db.select().from(disputes).innerJoin(commitments, eq(disputes.commitmentId, commitments.id)).where(eq(disputes.id, input.disputeId)).limit(1);
-  if (!row) throw new Error("Dispute not found.");
+  if (!row) throw new ProtocolError("Dispute not found.", 404);
   const { disputes: dispute, commitments: commitment } = row;
-  if (commitment.workspaceId !== input.workspaceId) throw new Error("Only the workspace that funded this commitment can resolve its dispute.");
-  if (dispute.status !== "open") throw new Error("This dispute has already been resolved.");
+  if (commitment.workspaceId !== input.workspaceId) throw new ProtocolError("Only the workspace that funded this commitment can resolve its dispute.");
+  if (dispute.status !== "open") throw new ProtocolError("This dispute has already been resolved.");
   const award = splitBps === null ? null : (Number(commitment.budget) * splitBps / 10_000).toFixed(2);
   const nextStatus = input.outcome === "release" ? dispute.previousStatus : input.outcome === "refund" ? "refunded" : "verified";
 
@@ -353,7 +354,7 @@ export async function resolveDispute(input: { disputeId: number; workspaceId: nu
   if (input.outcome !== "release") await applyDisputePenalty(commitment, input.outcome, award);
 
   const [resolved] = await db.update(disputes).set({ status: "resolved", outcome: input.outcome, splitBps, resolution: note, resolvedByUserId: input.userId, resolvedByApiKeyId: input.apiKeyId, resolvedAt: new Date() }).where(and(eq(disputes.id, dispute.id), eq(disputes.status, "open"))).returning();
-  if (!resolved) throw new Error("This dispute has already been resolved.");
+  if (!resolved) throw new ProtocolError("This dispute has already been resolved.");
   await db.update(commitments).set({ status: nextStatus, updatedAt: new Date() }).where(eq(commitments.id, commitment.id));
   await db.insert(verificationEvents).values({ commitmentId: commitment.id, type: "dispute_resolved", provider: "Keenetix arbitration", status: input.outcome === "refund" ? "failed" : "passed", evidence: { disputeId: dispute.id, outcome: input.outcome, splitBps, award }, attestor: "Keenetix protocol" });
   await logAudit({ workspaceId: input.workspaceId, userId: input.userId, apiKeyId: input.apiKeyId, action: "dispute.resolved", entityType: "dispute", entityId: dispute.id, metadata: { commitmentId: commitment.id, outcome: input.outcome, splitBps, award, nextStatus } });
@@ -385,7 +386,7 @@ async function applyDisputePenalty(commitment: CommitmentRow, outcome: Exclude<D
  */
 export async function getAgentReputation(agentId: number, workspaceId: number) {
   const [agent] = await db.select().from(agents).where(and(eq(agents.id, agentId), eq(agents.workspaceId, workspaceId))).limit(1);
-  if (!agent) throw new Error("Agent not found in this workspace.");
+  if (!agent) throw new ProtocolError("Agent not found in this workspace.", 404);
   const records = await db.select({ id: reputationRecords.id, reliability: reputationRecords.reliability, quality: reputationRecords.quality, efficiency: reputationRecords.efficiency, delta: reputationRecords.delta, note: reputationRecords.note, createdAt: reputationRecords.createdAt, commitmentId: reputationRecords.commitmentId, reference: commitments.reference, objective: commitments.objective })
     .from(reputationRecords).leftJoin(commitments, eq(reputationRecords.commitmentId, commitments.id))
     .where(eq(reputationRecords.agentId, agentId)).orderBy(desc(reputationRecords.createdAt)).limit(100);

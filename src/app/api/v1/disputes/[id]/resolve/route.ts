@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ApiSecurityError, apiErrorResponse, authenticateApiKey } from "@/lib/api-security";
+import { apiErrorResponse, authenticateApiKey } from "@/lib/api-security";
 import { DISPUTE_OUTCOMES, DisputeOutcome, resolveDispute } from "@/lib/keenetix";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -12,9 +12,5 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (!outcome) return NextResponse.json({ error: "Resolution must be release, refund, or split." }, { status: 400 });
     const result = await resolveDispute({ disputeId, workspaceId: api.workspaceId, outcome, note: typeof body.note === "string" ? body.note : "", splitBps: body.splitBps === undefined ? undefined : Number(body.splitBps), apiKeyId: api.apiKeyId });
     return NextResponse.json({ data: result });
-  } catch (error) {
-    // Resolution rules ("already resolved", "not your escrow") are caller errors, not server faults.
-    if (error instanceof Error && !(error instanceof ApiSecurityError)) return NextResponse.json({ error: error.message }, { status: 400 });
-    return apiErrorResponse(error);
-  }
+  } catch (error) { return apiErrorResponse(error); }
 }
