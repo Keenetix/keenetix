@@ -1,6 +1,6 @@
 {
   "name": "@keenetix/sdk",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "TypeScript client for the Keenetix economic execution API — commitments, agents, verification, settlement, disputes, and reputation.",
   "license": "MIT",
   "repository": {

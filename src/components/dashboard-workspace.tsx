@@ -62,6 +62,7 @@ export function DashboardWorkspace() {
   const [disputing, setDisputing] = useState<Commitment | null>(null);
   const [resolving, setResolving] = useState<Dispute | null>(null);
   const [inspecting, setInspecting] = useState<Agent | null>(null);
+  const [railOpen, setRailOpen] = useState(false);
 
   const loadWorkspace = async () => {
     setLoading(true);
@@ -120,9 +121,17 @@ export function DashboardWorkspace() {
   const canResolve = ["owner", "admin"].includes(data.identity.role);
   const headings: Record<View, string> = { overview: "Overview", commitments: "Commitments", agents: "Execution network", disputes: "Disputes", keys: "API credentials", team: "Workspace team" };
 
+  // On a phone the rail is a collapsed bar; selecting a destination should close it again.
+  const go = (next: View) => { setView(next); setRailOpen(false); };
+
   return <div className="workspace-shell">
-    <aside className="workspace-rail">
-      <a className="rail-brand" href={SITE.url} aria-label="Keenetix home"><KeenetixLogo /></a>
+    <aside className={`workspace-rail ${railOpen ? "is-open" : ""}`.trim()}>
+      <div className="rail-top">
+        <a className="rail-brand" href={SITE.url} aria-label="Keenetix home"><KeenetixLogo /></a>
+        <button className="rail-toggle" aria-expanded={railOpen} aria-controls="workspace-nav" onClick={() => setRailOpen((open) => !open)}>
+          {railOpen ? <CloseIcon /> : <MenuIcon />}<span>{railOpen ? "Close" : "Menu"}</span>
+        </button>
+      </div>
 
       <div className="rail-workspace">
         <small>WORKSPACE</small>
@@ -131,16 +140,16 @@ export function DashboardWorkspace() {
           : <b>{data.workspace.name}</b>}
       </div>
 
-      <nav className="rail-nav" aria-label="Workspace">
-        <button className={view === "overview" ? "active" : ""} onClick={() => setView("overview")}><GridIcon /><span>Overview</span><em /></button>
-        <button className={view === "commitments" ? "active" : ""} onClick={() => setView("commitments")}><ListIcon /><span>Commitments</span><em className="rail-count">{data.summary.totalCommitments}</em></button>
-        <button className={view === "agents" ? "active" : ""} onClick={() => setView("agents")}><AgentIcon /><span>Agents</span><em className="rail-muted">{data.agents.length}</em></button>
+      <nav className="rail-nav" id="workspace-nav" aria-label="Workspace">
+        <button className={view === "overview" ? "active" : ""} onClick={() => go("overview")}><GridIcon /><span>Overview</span><em /></button>
+        <button className={view === "commitments" ? "active" : ""} onClick={() => go("commitments")}><ListIcon /><span>Commitments</span><em className="rail-count">{data.summary.totalCommitments}</em></button>
+        <button className={view === "agents" ? "active" : ""} onClick={() => go("agents")}><AgentIcon /><span>Agents</span><em className="rail-muted">{data.agents.length}</em></button>
         <Link href="/settlement"><CardIcon /><span>Settlement</span><em /></Link>
-        <button className={view === "disputes" ? "active" : ""} onClick={() => setView("disputes")}><ScaleIcon /><span>Disputes</span>{openDisputes.length ? <em className="rail-alert">{openDisputes.length}</em> : <em />}</button>
+        <button className={view === "disputes" ? "active" : ""} onClick={() => go("disputes")}><ScaleIcon /><span>Disputes</span>{openDisputes.length ? <em className="rail-alert">{openDisputes.length}</em> : <em />}</button>
         <hr />
-        <button className={view === "keys" ? "active" : ""} onClick={() => setView("keys")}><CodeIcon /><span>API keys</span><em /></button>
+        <button className={view === "keys" ? "active" : ""} onClick={() => go("keys")}><CodeIcon /><span>API keys</span><em /></button>
         <a href={`${SITE.url}/docs`}><DocIcon /><span>Documentation</span><em /></a>
-        <button className={view === "team" ? "active" : ""} onClick={() => setView("team")}><TeamIcon /><span>Team</span><em /></button>
+        <button className={view === "team" ? "active" : ""} onClick={() => go("team")}><TeamIcon /><span>Team</span><em /></button>
       </nav>
 
       <div className="rail-foot">
@@ -509,5 +518,7 @@ function AgentIcon() { return <svg viewBox="0 0 24 24" width="15" height="15" fi
 function CardIcon() { return <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="3" y="6" width="18" height="12" /><path d="M3 10h18" /></svg>; }
 function CodeIcon() { return <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" /></svg>; }
 function DocIcon() { return <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" /><path d="M8 10h8M8 14h6" /></svg>; }
+function MenuIcon() { return <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>; }
+function CloseIcon() { return <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>; }
 function ScaleIcon() { return <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M12 4v16M6 8h12M4 19h16" /><path d="m6 8-3 6h6zM18 8l-3 6h6z" /></svg>; }
 function TeamIcon() { return <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="10" r="2.4" /><path d="M3 19c0-3.2 2.7-5 6-5s6 1.8 6 5" /></svg>; }
