@@ -61,7 +61,7 @@ jobs:
           node-version: 22
       - run: npm install -g vercel@latest
       - run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-      - run: vercel build --prod --token="$VERCEL_TOKEN"
+      - run: NEXT_PUBLIC_BUILD_SHA="$GITHUB_SHA" vercel build --prod --token="$VERCEL_TOKEN"
       # No --detach: the job should fail if the deployment does.
       - name: Deploy to production
         run: |
@@ -69,14 +69,18 @@ jobs:
           echo "Deployed $URL" >> $GITHUB_STEP_SUMMARY
           echo "url=$URL" >> $GITHUB_OUTPUT
         id: deploy
-      # A green deploy that serves the old build is what got us here, so prove the commit is live.
-      - name: Verify the deployed commit is serving
+      # Checking for a fixed string is useless -- it passes even when production rolls backwards,
+      # which is exactly what happened. Compare the commit the site reports against this one.
+      - name: Verify production is serving this commit
         run: |
           for attempt in $(seq 1 10); do
-            if curl -sf "https://www.keenetix.xyz/?cachebust=${GITHUB_SHA}" | grep -q 'ory-verify'; then
-              echo "Production is serving the current build." && exit 0
+            LIVE=$(curl -sf "https://www.keenetix.xyz/?cachebust=${GITHUB_SHA}" \
+              | grep -o 'name="keenetix-build" content="[0-9a-f]*"' | grep -o '[0-9a-f]\{7,\}' || true)
+            if [ "$LIVE" = "$GITHUB_SHA" ]; then
+              echo "Production is serving ${GITHUB_SHA}." && exit 0
             fi
+            echo "Production reports '${LIVE:-none}', waiting for ${GITHUB_SHA}…"
             sleep 15
           done
-          echo "::error::Production did not serve the expected build after deploying."
+          echo "::error::Production is serving '${LIVE:-none}', not ${GITHUB_SHA}."
           exit 1

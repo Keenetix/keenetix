@@ -64,6 +64,8 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false, address: false, email: false },
   other: {
     "ory-verify": "orynth-e33c543cf6154c4cb9b151bd22cdecdd",
+    // Lets a deploy prove which commit is actually serving, rather than assuming.
+    "keenetix-build": process.env.NEXT_PUBLIC_BUILD_SHA ?? "dev",
     ...(ahrefsVerification ? { "ahrefs-site-verification": ahrefsVerification } : {}),
   },
 };
