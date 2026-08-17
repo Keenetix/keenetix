@@ -62,7 +62,10 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: SITE.name, statusBarStyle: "black-translucent" },
   formatDetection: { telephone: false, address: false, email: false },
-  ...(ahrefsVerification ? { other: { "ahrefs-site-verification": ahrefsVerification } } : {}),
+  other: {
+    "ory-verify": "orynth-e33c543cf6154c4cb9b151bd22cdecdd",
+    ...(ahrefsVerification ? { "ahrefs-site-verification": ahrefsVerification } : {}),
+  },
 };
 
 export const viewport: Viewport = {

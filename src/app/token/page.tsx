@@ -1,13 +1,10 @@
 import { AsciiField } from "@/components/ascii-field";
 import Link from "next/link";
-import { ContractAddress } from "@/components/contract-address";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { pageMetadata } from "@/lib/site";
 
 export const metadata = pageMetadata("/token");
-
-const KNTX_ADDRESS = "sriobn4uqQh9jAytMwy7GHNgPYwZncuj55t1NVyEASY";
 
 const utilities = [
   ["01", "Settlement fees", "Every commitment contributes to the cost of credible execution."],
@@ -42,23 +39,15 @@ export default function TokenPage() {
           <span className="kntx-mark">$KNTX</span>
         </section>
 
-        <section className="kntx-address-bar">
-          <ContractAddress address={KNTX_ADDRESS} />
-          <div className="kntx-address-links">
-            <a href={`https://solscan.io/token/${KNTX_ADDRESS}`} target="_blank" rel="noreferrer">Solscan ↗</a>
-            <a href={`https://kickstart.easya.io/token/${KNTX_ADDRESS}`} target="_blank" rel="noreferrer">EasyA Kickstart ↗</a>
-          </div>
-        </section>
-
         <section className="kntx-launch-block">
           <div className="kntx-partner">
-            <div className="easya-wordmark"><EasyAMark /> EasyA Kickstart</div>
-            <p>$KNTX is launched on EasyA Kickstart — the settlement token securing Keenetix&apos;s agent economy.</p>
+            <div className="launch-wordmark"><LaunchMark /> Orynth</div>
+            <p>$KNTX is launched on Orynth — the settlement token securing Keenetix&apos;s agent economy.</p>
           </div>
           <div className="kntx-launch-copy">
             <p className="section-label">Launch</p>
             <h2>How the token works.<br /><em>Fair launch.</em></h2>
-            <p>$KNTX launches on EasyA Kickstart, a fair launch launchpad on Solana. Every buyer moves along the same bonding curve — no presale, no insider allocation. Once the curve completes, $KNTX automatically migrates into a permanent, locked Meteora DAMM v1 or v2 liquidity pool.</p>
+            <p>$KNTX launches on Orynth, a fair launch launchpad on Solana. Every buyer moves along the same bonding curve — no presale, no insider allocation. Once the curve completes, $KNTX automatically migrates into a permanent, locked Meteora DAMM v1 or v2 liquidity pool.</p>
           </div>
         </section>
 
@@ -85,12 +74,13 @@ function ArrowIcon() {
   return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h13" /><path d="m13 6 6 6-6 6" /></svg>;
 }
 
-function EasyAMark() {
+/** Neutral launchpad glyph. Replace with Orynth's own mark once we have the asset. */
+function LaunchMark() {
   return (
     <svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true">
-      <rect width="28" height="28" rx="8" fill="#3EE68A" />
-      <rect x="5" y="5" width="9" height="9" rx="3" fill="#0B0F0C" />
-      <rect x="14" y="14" width="9" height="9" rx="3" fill="#0B0F0C" />
+      <rect width="28" height="28" rx="8" fill="#285337" />
+      <circle cx="14" cy="14" r="7" fill="none" stroke="#B4E33F" strokeWidth="2" />
+      <circle cx="14" cy="14" r="2.4" fill="#B4E33F" />
     </svg>
   );
 }
