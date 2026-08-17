@@ -47,9 +47,36 @@ jobs:
     needs: ci
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    # www.keenetix.xyz is served by Vercel. This step used to run `railway up --detach`, which
+    # returned success as soon as the upload finished, on a host that does not serve the domain --
+    # so CI reported a green deploy while production stayed ten days stale.
+    env:
+      VERCEL_ORG_ID: team_SSytJKkFTl57FMrw5WJEPZ73
+      VERCEL_PROJECT_ID: prj_FOrmnapYsBfHZb9144eYK1HHb24b
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - run: npm install -g @railway/cli
-      - run: railway up --service keenetix --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g vercel@latest
+      - run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - run: vercel build --prod --token="$VERCEL_TOKEN"
+      # No --detach: the job should fail if the deployment does.
+      - name: Deploy to production
+        run: |
+          URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "Deployed $URL" >> $GITHUB_STEP_SUMMARY
+          echo "url=$URL" >> $GITHUB_OUTPUT
+        id: deploy
+      # A green deploy that serves the old build is what got us here, so prove the commit is live.
+      - name: Verify the deployed commit is serving
+        run: |
+          for attempt in $(seq 1 10); do
+            if curl -sf "https://www.keenetix.xyz/?cachebust=${GITHUB_SHA}" | grep -q 'ory-verify'; then
+              echo "Production is serving the current build." && exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Production did not serve the expected build after deploying."
+          exit 1
