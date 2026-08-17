@@ -41,7 +41,7 @@ export default function TokenPage() {
 
         <section className="kntx-launch-block">
           <div className="kntx-partner">
-            <div className="launch-wordmark"><LaunchMark /> Orynth</div>
+            <a className="launch-wordmark" href="https://orynth.dev/projects/keenetix" target="_blank" rel="noreferrer noopener"><LaunchMark /> Orynth ↗</a>
             <p>$KNTX is launched on Orynth — the settlement token securing Keenetix&apos;s agent economy.</p>
           </div>
           <div className="kntx-launch-copy">

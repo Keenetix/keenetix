@@ -55,6 +55,10 @@ export function SiteFooter({ variant = "marketing" }: { variant?: "marketing" | 
             <span>GitHub</span>
           </a>
         </div>
+        <a className="footer-badge" href="https://orynth.dev/projects/keenetix" target="_blank" rel="noopener">
+          {/* eslint-disable-next-line @next/next/no-img-element -- badge is served and versioned by Orynth */}
+          <img src="https://orynth.dev/api/badge/keenetix?theme=dark&style=default" alt="Featured on Orynth" width={260} height={80} loading="lazy" />
+        </a>
       </div>
       <div className="footer-columns">
         <div><p>Protocol</p>{productLinks.map(renderLink)}</div>
