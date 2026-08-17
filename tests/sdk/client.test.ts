@@ -10,6 +10,10 @@ import { GET as listAgents } from "@/app/api/v1/agents/route";
 import { GET as agentReputation } from "@/app/api/v1/agents/[id]/reputation/route";
 import { GET as listDisputes, POST as raiseDispute } from "@/app/api/v1/disputes/route";
 import { POST as resolveDispute } from "@/app/api/v1/disputes/[id]/resolve/route";
+import { POST as registerAgent } from "@/app/api/v1/agents/register/route";
+import { POST as oracleVerification } from "@/app/api/v1/verifications/oracle/route";
+import { POST as submitSettlement } from "@/app/api/v1/settlements/route";
+import { GET as listAudit } from "@/app/api/v1/audit/route";
 const registry = new TestRegistry();
 afterAll(async () => {
   await registry.cleanup();
@@ -28,7 +32,11 @@ function routedFetch(): typeof globalThis.fetch {
     if (resolve) return resolveDispute(request, { params: Promise.resolve({ id: resolve[1] }) });
     if (pathname === "/api/v1/commitments") return request.method === "POST" ? createCommitment(request) : listCommitments(request);
     if (pathname === "/api/v1/agents") return listAgents(request);
+    if (pathname === "/api/v1/agents/register") return registerAgent(request);
     if (pathname === "/api/v1/disputes") return request.method === "POST" ? raiseDispute(request) : listDisputes(request);
+    if (pathname === "/api/v1/verifications/oracle") return oracleVerification(request);
+    if (pathname === "/api/v1/settlements") return submitSettlement(request);
+    if (pathname === "/api/v1/audit") return listAudit(request);
     throw new Error(`Unrouted path in test: ${pathname}`);
   }) as typeof globalThis.fetch;
 }
@@ -112,6 +120,36 @@ describe("Keenetix client", () => {
     expect(error.isAuthError).toBe(false);
     expect(error.isRateLimited).toBe(false);
   });
+  it("registers an agent and returns the declared shape", async () => {
+    const { client } = await setup(["agents:read", "agents:write"]);
+    const agent = await client.agents.register({ name: "Registered", role: "worker", description: "does things", hourlyRate: 120, stakeAmount: 500, walletAddress: "0xfeed", capabilities: ["typescript"] });
+    expect(agent.name).toBe("Registered");
+    expect(agent.reputation).toBe("50.00");
+    expect(agent.capabilities).toEqual(["typescript"]);
+  });
+  it("records an oracle verification event", async () => {
+    const { client, commitment } = await setup(["verifications:write", "commitments:read"]);
+    const event = await client.verifications.oracle({ commitmentReference: commitment.reference, provider: "GitHub Actions", type: "ci_attestation", evidence: { checks: 12 }, status: "passed" });
+    expect(event.commitmentId).toBe(commitment.id);
+    expect(event.status).toBe("passed");
+    expect(event.evidence).toEqual({ checks: 12 });
+    expect(event.attestor).toBe("oracle-adapter");
+  });
+  it("submits a settlement receipt with the input the types describe", async () => {
+    const { client, commitment } = await setup(["settlements:write"]);
+    const settlement = await client.settlements.submit({ commitmentId: commitment.id, transactionHash: `0x${"ab".repeat(32)}`, escrowAddress: `0x${"cd".repeat(20)}`, chain: "evm", chainId: 1 });
+    expect(settlement.commitmentId).toBe(commitment.id);
+    expect(settlement.status).toBe("submitted");
+    expect(settlement.amount).toBe("1000.00");
+  });
+  it("lists audit entries", async () => {
+    const { client } = await setup(["audit:read", "commitments:read"]);
+    await client.commitments.list();
+    const entries = await client.audit.list();
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries[0].action).toBe("api.request");
+    expect(typeof entries[0].metadata).toBe("object");
+  });
   it("flags a scope refusal as an auth error", async () => {
     const { client } = await setup(["commitments:read"]);
     const failure = await client.disputes.list().catch((error: unknown) => error) as KeenetixError;
@@ -119,5 +157,45 @@ describe("Keenetix client", () => {
     expect(failure.status).toBe(403);
     expect(failure.isAuthError).toBe(true);
     expect(failure.path).toBe("/api/v1/disputes");
+  });
+});
+
+describe("settlement input typing", () => {
+  it("rejects an EVM receipt with no chainId, so the type has to require one", async () => {
+    const { client, commitment } = await setup(["settlements:write"]);
+    // Cast past the fixed type to prove the API really does refuse this payload.
+    const failure = await client.settlements.submit({
+      commitmentId: commitment.id,
+      transactionHash: `0x${"ab".repeat(32)}`,
+      escrowAddress: `0x${"cd".repeat(20)}`,
+      chain: "evm",
+    } as unknown as Parameters<typeof client.settlements.submit>[0]).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(KeenetixError);
+    expect((failure as KeenetixError).status).toBe(400);
+  });
+  it("accepts a Solana receipt without a chainId", async () => {
+    const { client, commitment } = await setup(["settlements:write"]);
+    const settlement = await client.settlements.submit({
+      commitmentId: commitment.id,
+      transactionHash: "5".repeat(80),
+      escrowAddress: "9".repeat(40),
+      chain: "solana",
+    });
+    expect(settlement.chain).toBe("solana");
+    expect(settlement.chainId).toBeNull();
+  });
+});
+
+describe("timeouts", () => {
+  it("aborts a stalled request and reports it as a timeout", async () => {
+    const stalled: typeof globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+      })) as typeof globalThis.fetch;
+    const client = new Keenetix({ apiKey: "kntx_live_x", fetch: stalled, timeoutMs: 120 });
+    const failure = await client.commitments.list().catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(KeenetixError);
+    expect((failure as KeenetixError).status).toBe(408);
+    expect((failure as KeenetixError).message).toMatch(/timed out/);
   });
 });

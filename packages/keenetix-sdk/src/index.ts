@@ -19,12 +19,20 @@ export type KeenetixConfig = {
   baseUrl?: string;
   /** Injected for testing, or to supply a fetch with your own agent or proxy. */
   fetch?: typeof globalThis.fetch;
+  /** Per-request timeout. Defaults to 30s; pass 0 to wait indefinitely. */
+  timeoutMs?: number;
 };
 export type CommitmentInput = { objective: string; budget: number; deadline: string; agentId?: number; repository?: string; verificationRules?: string[] };
 export type AgentInput = { name: string; role: string; description: string; capabilities?: string[]; hourlyRate: number; stakeAmount: number; walletAddress: string; isPublic?: boolean; verificationPublicKey?: string };
 export type AttestInput = { commitmentReference: string; agentId: number; evidence: Record<string, unknown>; signature: string; type?: string };
 export type OracleInput = { commitmentReference: string; provider: string; type: string; evidence: Record<string, unknown>; status?: "passed" | "failed" };
-export type SettlementInput = { commitmentId: number; transactionHash: string; escrowAddress: string; chain?: "evm" | "solana"; chainId?: number };
+/**
+ * An EVM receipt is verified against a specific chain, so `chainId` is required there and the API
+ * refuses a submission without one. Solana receipts carry no chain id.
+ */
+export type SettlementInput =
+  | { commitmentId: number; transactionHash: string; escrowAddress: string; chain?: "evm"; chainId: number }
+  | { commitmentId: number; transactionHash: string; escrowAddress: string; chain: "solana"; chainId?: never };
 export type Page = { limit?: number; offset?: number };
 /** `splitBps` is the worker's share in basis points, and is required only for a split. */
 export type DisputeResolution =
@@ -57,11 +65,13 @@ export class Keenetix {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly fetchImpl: typeof globalThis.fetch;
+  private readonly timeoutMs: number;
 
   constructor(config: KeenetixConfig) {
     if (!config?.apiKey) throw new Error("A Keenetix API key is required.");
     this.baseUrl = (config.baseUrl ?? "https://www.keenetix.xyz").replace(/\/$/, "");
     this.apiKey = config.apiKey;
+    this.timeoutMs = config.timeoutMs ?? 30_000;
     this.fetchImpl = config.fetch ?? globalThis.fetch;
     if (typeof this.fetchImpl !== "function") throw new Error("No fetch implementation available. Pass one via config.fetch.");
   }
@@ -94,11 +104,23 @@ export class Keenetix {
   };
 
   private async request<T>(path: string, method: "GET" | "POST" = "GET", body?: unknown): Promise<T> {
-    const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
-      method,
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    // Without this an unattended agent can hang forever mid-settlement on a stalled connection.
+    const controller = this.timeoutMs > 0 ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), this.timeoutMs) : null;
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+        method,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: controller?.signal,
+      });
+    } catch (error) {
+      if (controller?.signal.aborted) throw new KeenetixError(`Request timed out after ${this.timeoutMs}ms.`, 408, path);
+      throw error;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
     const payload = await response.json().catch(() => null) as { data?: T; error?: string } | null;
     if (!response.ok) throw new KeenetixError(payload?.error ?? `Keenetix API request failed (${response.status})`, response.status, path);
     return payload?.data as T;
